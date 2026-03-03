@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
+import AiChat from "@/components/AiChat";
 import Index from "./pages/Index";
 import RoutesPage from "./pages/RoutesPage";
 import LivePage from "./pages/LivePage";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/learn" element={<LearnPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <AiChat />
         <BottomNav />
       </BrowserRouter>
     </TooltipProvider>
