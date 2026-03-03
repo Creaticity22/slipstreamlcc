@@ -168,9 +168,10 @@ const AiChat = () => {
             exit={{ scale: 0 }}
             whileTap={{ scale: 0.9 }}
             onClick={() => setOpen(true)}
-            className="fixed bottom-20 right-4 z-50 w-14 h-14 rounded-2xl bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-elevated"
+            className="fixed bottom-20 right-4 z-50 h-12 px-4 rounded-2xl bg-gradient-primary text-primary-foreground flex items-center justify-center gap-2 shadow-elevated"
           >
-            <MessageCircle className="w-6 h-6" />
+            <MessageCircle className="w-5 h-5" />
+            <span className="text-sm font-display font-semibold">Ask Slipstream</span>
           </motion.button>
         )}
       </AnimatePresence>
