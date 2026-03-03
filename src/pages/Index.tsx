@@ -1,8 +1,13 @@
 import { motion } from "framer-motion";
 import JourneySearch from "@/components/JourneySearch";
 import { Leaf, Zap, Bell } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const Index = () => {
+  const { user } = useAuth();
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || 
+                    user?.user_metadata?.name?.split(" ")[0] || null;
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-6">
@@ -14,7 +19,7 @@ const Index = () => {
         >
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">
-              Hey there! 👋
+              {firstName ? `Hey ${firstName}! 👋` : "Hey there! 👋"}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Where are you heading today?

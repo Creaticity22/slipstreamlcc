@@ -1,6 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Send, Bot, User, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, Bot, User, Loader2, Trash2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -18,13 +20,61 @@ const AiChat = () => {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Load chat history when user signs in
+  useEffect(() => {
+    if (!user || historyLoaded) return;
+    const loadHistory = async () => {
+      const { data } = await supabase
+        .from("chat_messages")
+        .select("role, content")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      if (data && data.length > 0) {
+        setMessages(data.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })));
+      }
+      setHistoryLoaded(true);
+    };
+    loadHistory();
+  }, [user, historyLoaded]);
+
+  // Reset when user signs out
+  useEffect(() => {
+    if (!user) {
+      setHistoryLoaded(false);
+    }
+  }, [user]);
+
+  const saveMessage = useCallback(
+    async (role: "user" | "assistant", content: string) => {
+      if (!user) return;
+      await supabase.from("chat_messages").insert({
+        user_id: user.id,
+        role,
+        content,
+      });
+    },
+    [user]
+  );
+
+  const clearHistory = async () => {
+    if (!user) {
+      setMessages([]);
+      return;
+    }
+    await supabase.from("chat_messages").delete().eq("user_id", user.id);
+    setMessages([]);
+  };
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -33,6 +83,9 @@ const AiChat = () => {
     setMessages(allMessages);
     setInput("");
     setIsLoading(true);
+
+    // Save user message
+    await saveMessage("user", text.trim());
 
     let assistantSoFar = "";
     const upsertAssistant = (chunk: string) => {
@@ -90,9 +143,15 @@ const AiChat = () => {
           }
         }
       }
+
+      // Save complete assistant message
+      if (assistantSoFar) {
+        await saveMessage("assistant", assistantSoFar);
+      }
     } catch (e) {
       console.error("Chat error:", e);
-      upsertAssistant("Sorry, I couldn't connect right now. Try again in a sec! 😊");
+      const fallback = "Sorry, I couldn't connect right now. Try again in a sec! 😊";
+      upsertAssistant(fallback);
     } finally {
       setIsLoading(false);
     }
@@ -133,6 +192,11 @@ const AiChat = () => {
               <span className="text-sm font-display font-semibold text-primary-foreground flex-1">
                 Slipstream Assistant
               </span>
+              {messages.length > 0 && (
+                <button onClick={clearHistory} className="mr-1">
+                  <Trash2 className="w-4 h-4 text-primary-foreground/60 hover:text-primary-foreground/90" />
+                </button>
+              )}
               <button onClick={() => setOpen(false)}>
                 <X className="w-5 h-5 text-primary-foreground/80" />
               </button>
