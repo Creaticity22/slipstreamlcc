@@ -14,7 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      chat_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      favourite_routes: {
+        Row: {
+          created_at: string
+          from_location: string
+          id: string
+          label: string | null
+          to_location: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_location: string
+          id?: string
+          label?: string | null
+          to_location: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_location?: string
+          id?: string
+          label?: string | null
+          to_location?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      points_log: {
+        Row: {
+          created_at: string
+          id: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          points: number
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          points?: number
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          level: number
+          streak_days: number
+          total_co2_saved: number
+          total_points: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          level?: number
+          streak_days?: number
+          total_co2_saved?: number
+          total_points?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          level?: number
+          streak_days?: number
+          total_co2_saved?: number
+          total_points?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

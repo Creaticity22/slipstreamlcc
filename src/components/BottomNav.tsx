@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Clock, Trophy, BookOpen } from "lucide-react";
+import { Search, Clock, Trophy, BookOpen, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 const tabs = [
@@ -7,6 +7,7 @@ const tabs = [
   { path: "/live", icon: Clock, label: "Live" },
   { path: "/points", icon: Trophy, label: "Points" },
   { path: "/learn", icon: BookOpen, label: "Learn" },
+  { path: "/profile", icon: User, label: "Profile" },
 ];
 
 const BottomNav = () => {
