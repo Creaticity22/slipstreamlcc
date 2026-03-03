@@ -8,16 +8,16 @@ const LearnPage = () => {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-5"
-        >
-          <h1 className="text-2xl font-display font-bold text-foreground">Learn 📚</h1>
+          className="mb-5">
+          
+          <h1 className="text-2xl font-display font-bold text-foreground">Learn with Slipstream</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Quick guides to travel smarter</p>
         </motion.div>
 
         <LearnHub />
       </div>
-    </div>
-  );
+    </div>);
+
 };
 
 export default LearnPage;
