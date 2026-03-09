@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Bus, Train, AlertTriangle, Clock, RefreshCw, WifiOff } from "lucide-react";
+import { Bus, AlertTriangle, Clock, RefreshCw, WifiOff, MapPin } from "lucide-react";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
 
 const POLL_INTERVAL_MS = 30_000;
@@ -8,15 +8,6 @@ const POLL_INTERVAL_MS = 30_000;
 // Headingley reference point
 const REF_LAT = 53.825;
 const REF_LNG = -1.576;
-
-// Static fallback data (original mock)
-const fallbackDepartures: DisplayDeparture[] = [
-  { mode: "bus", line: "72", destination: "Leeds City Centre", time: "3 min", status: "on-time", crowding: "Low" },
-  { mode: "bus", line: "X6", destination: "Bradford Interchange", time: "7 min", status: "on-time", crowding: "Medium" },
-  { mode: "train", line: "Northern", destination: "Huddersfield", time: "12 min", status: "delayed", crowding: "High" },
-  { mode: "bus", line: "110", destination: "Wakefield", time: "15 min", status: "on-time", crowding: "Low" },
-  { mode: "train", line: "TPE", destination: "Manchester Piccadilly", time: "18 min", status: "on-time", crowding: "Medium" },
-];
 
 const statusBadge: Record<string, string> = {
   "on-time": "bg-slipstream-teal/15 text-slipstream-teal",
@@ -33,6 +24,8 @@ interface DisplayDeparture {
   time: string;
   status: "on-time" | "delayed" | "early";
   crowding: string;
+  operator: string;
+  distanceKm: number | null;
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -44,23 +37,25 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 function formatDestination(raw: string): string {
-  return raw.replace(/_/g, " ");
+  return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function liveToDeparture(dep: LiveDeparture): DisplayDeparture {
-  // Estimate time based on distance from reference point (~30 km/h avg bus speed)
   let timeStr = "Nearby";
+  let distanceKm: number | null = null;
+
   if (dep.location) {
-    const distKm = haversineKm(REF_LAT, REF_LNG, dep.location.lat, dep.location.lng);
-    const estMinutes = Math.round((distKm / 25) * 60); // ~25 km/h avg
+    distanceKm = haversineKm(REF_LAT, REF_LNG, dep.location.lat, dep.location.lng);
+    const estMinutes = Math.round((distanceKm / 25) * 60); // ~25 km/h avg bus speed
     if (estMinutes <= 1) timeStr = "Due";
     else timeStr = `~${estMinutes} min`;
   }
+
   if (dep.minutesAway !== null && dep.minutesAway !== undefined) {
     timeStr = dep.minutesAway <= 0 ? "Due" : `${dep.minutesAway} min`;
   }
 
-  // Estimate crowding heuristic from recorded time freshness
+  // Crowding estimate from data freshness
   const recAge = dep.recordedAtTime ? (Date.now() - new Date(dep.recordedAtTime).getTime()) / 60000 : 0;
   const crowding = recAge > 5 ? "High" : recAge > 2 ? "Medium" : "Low";
 
@@ -71,6 +66,8 @@ function liveToDeparture(dep: LiveDeparture): DisplayDeparture {
     time: timeStr,
     status: dep.status,
     crowding,
+    operator: dep.operatorRef,
+    distanceKm,
   };
 }
 
@@ -79,15 +76,16 @@ function deduplicateDepartures(deps: DisplayDeparture[]): DisplayDeparture[] {
   const seen = new Map<string, DisplayDeparture>();
   for (const dep of deps) {
     const key = `${dep.line}-${dep.destination}`;
-    if (!seen.has(key)) {
+    const existing = seen.get(key);
+    if (!existing || (dep.distanceKm !== null && (existing.distanceKm === null || dep.distanceKm < existing.distanceKm))) {
       seen.set(key, dep);
     }
   }
-  return Array.from(seen.values());
+  return Array.from(seen.values()).sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
 }
 
 const LiveDepartures = () => {
-  const [departures, setDepartures] = useState<DisplayDeparture[]>(fallbackDepartures);
+  const [departures, setDepartures] = useState<DisplayDeparture[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,18 +97,18 @@ const LiveDepartures = () => {
       const result = await fetchLiveDepartures();
 
       if (result.source === "error" || result.departures.length === 0) {
-        setDepartures(fallbackDepartures);
+        setDepartures([]);
         setIsLive(false);
         setError(result.error || "No live data available");
       } else {
         const mapped = deduplicateDepartures(result.departures.map(liveToDeparture));
-        setDepartures(mapped.length > 0 ? mapped : fallbackDepartures);
-        setIsLive(mapped.length > 0);
+        setDepartures(mapped);
+        setIsLive(true);
         setLastUpdated(new Date(result.updatedAt));
         setError(null);
       }
     } catch {
-      setDepartures(fallbackDepartures);
+      setDepartures([]);
       setIsLive(false);
       setError("Live data unavailable");
     } finally {
@@ -133,7 +131,7 @@ const LiveDepartures = () => {
         <div className="bg-gradient-primary px-4 py-3 flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary-foreground" />
           <span className="text-sm font-semibold text-primary-foreground">
-            {isLive ? "Live buses near you" : "Scheduled departures"}
+            {isLive ? "Live buses near you" : loading ? "Loading…" : "No buses found"}
           </span>
           <span className="ml-auto flex items-center gap-1.5">
             {isLive ? (
@@ -148,6 +146,13 @@ const LiveDepartures = () => {
         </div>
 
         <div className="divide-y divide-border">
+          {departures.length === 0 && !loading && (
+            <div className="px-4 py-8 text-center">
+              <MapPin className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No live buses found in this area right now</p>
+              <p className="text-xs text-muted-foreground mt-1">Data sourced from BODS – try refreshing in a moment</p>
+            </div>
+          )}
           {departures.map((dep, i) => (
             <motion.div
               key={`${dep.line}-${dep.destination}-${i}`}
@@ -156,12 +161,8 @@ const LiveDepartures = () => {
               transition={{ delay: i * 0.08 }}
               className="px-4 py-3 flex items-center gap-3"
             >
-              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${dep.mode === "bus" ? "bg-slipstream-coral/15" : "bg-slipstream-purple/15"}`}>
-                {dep.mode === "bus" ? (
-                  <Bus className="w-4 h-4 text-slipstream-coral" />
-                ) : (
-                  <Train className="w-4 h-4 text-slipstream-purple" />
-                )}
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-slipstream-coral/15">
+                <Bus className="w-4 h-4 text-slipstream-coral" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -181,6 +182,9 @@ const LiveDepartures = () => {
                       />
                     ))}
                   </div>
+                  {dep.distanceKm !== null && (
+                    <span className="text-[10px] text-muted-foreground">{dep.distanceKm.toFixed(1)} km away</span>
+                  )}
                 </div>
               </div>
               <span className="text-lg font-display font-bold text-foreground whitespace-nowrap">{dep.time}</span>
@@ -189,24 +193,26 @@ const LiveDepartures = () => {
         </div>
       </div>
 
-      {/* Fallback notice */}
-      {!isLive && error && (
+      {/* Error notice */}
+      {!isLive && error && !loading && (
         <div className="bg-slipstream-gold/10 border border-slipstream-gold/30 rounded-xl p-3 flex items-start gap-2.5">
           <WifiOff className="w-4 h-4 text-slipstream-gold mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-foreground">Live data unavailable</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Showing scheduled times. We'll keep trying to connect.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Could not reach BODS. We'll keep trying every 30 seconds.</p>
           </div>
         </div>
       )}
 
-      {/* Heads up tip (only when live) */}
+      {/* Live source badge */}
       {isLive && (
-        <div className="bg-slipstream-gold/10 border border-slipstream-gold/30 rounded-xl p-3 flex items-start gap-2.5">
-          <AlertTriangle className="w-4 h-4 text-slipstream-gold mt-0.5 shrink-0" />
+        <div className="bg-slipstream-teal/10 border border-slipstream-teal/30 rounded-xl p-3 flex items-start gap-2.5">
+          <Bus className="w-4 h-4 text-slipstream-teal mt-0.5 shrink-0" />
           <div>
             <p className="text-sm font-semibold text-foreground">Live from BODS 🚌</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Real-time vehicle positions from the Bus Open Data Service. Estimated times based on distance.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Real-time vehicle positions from the Bus Open Data Service. {departures.length} bus{departures.length !== 1 ? "es" : ""} tracked.
+            </p>
           </div>
         </div>
       )}
@@ -214,10 +220,10 @@ const LiveDepartures = () => {
       {/* Updated at timestamp */}
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
-          ? `Updated at ${formatTime(lastUpdated)}`
+          ? `Updated at ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk`
           : loading
-          ? "Fetching live data…"
-          : "Using scheduled times"}
+          ? "Fetching live data from BODS…"
+          : "No data available"}
       </p>
     </div>
   );

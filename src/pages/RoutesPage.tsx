@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, WifiOff, RefreshCw } from "lucide-react";
+import { ArrowLeft, WifiOff, RefreshCw, Bus } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import RouteCard from "@/components/RouteCard";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
@@ -31,46 +31,6 @@ interface RouteData {
   delay?: number;
 }
 
-const staticRoutes: RouteData[] = [
-  {
-    type: "fastest",
-    departureTime: "07:42",
-    arrivalTime: "08:15",
-    duration: "33 min",
-    co2: "0.4 kg CO₂e",
-    crowding: "High",
-    legs: [
-      { mode: "bus", line: "72", duration: "18 min" },
-      { mode: "train", line: "Northern", duration: "12 min" },
-    ],
-    delay: 2,
-  },
-  {
-    type: "least-busy",
-    departureTime: "07:50",
-    arrivalTime: "08:28",
-    duration: "38 min",
-    co2: "0.3 kg CO₂e",
-    crowding: "Low",
-    legs: [
-      { mode: "bus", line: "X6", duration: "25 min" },
-      { mode: "walk", line: "Walk", duration: "8 min" },
-    ],
-  },
-  {
-    type: "lowest-carbon",
-    departureTime: "07:45",
-    arrivalTime: "08:22",
-    duration: "37 min",
-    co2: "0.2 kg CO₂e",
-    crowding: "Medium",
-    legs: [
-      { mode: "bus", line: "110", duration: "30 min" },
-      { mode: "walk", line: "Walk", duration: "5 min" },
-    ],
-  },
-];
-
 function addMinutes(timeStr: string, mins: number): string {
   const [h, m] = timeStr.split(":").map(Number);
   const total = h * 60 + m + mins;
@@ -84,76 +44,82 @@ function nowHHMM(): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-/** Merge live BODS data into static routes */
-function mergeWithLive(routes: RouteData[], liveDeps: LiveDeparture[]): RouteData[] {
-  return routes.map((route) => {
-    // Find the first bus leg and try to match a live vehicle
-    const busLeg = route.legs.find((l) => l.mode === "bus");
-    if (!busLeg) return route;
+// CO₂ estimate: bus ~0.089 kg/km, walk = 0
+function estimateCo2(distKm: number): string {
+  const co2 = distKm * 0.089;
+  return `${co2.toFixed(1)} kg CO₂e`;
+}
 
-    // Find closest live vehicle for this line
-    const matching = liveDeps.filter(
-      (d) => (d.lineName || d.lineRef) === busLeg.line
-    );
+/** Build route options entirely from BODS live departures */
+function buildRoutesFromLive(departures: LiveDeparture[]): RouteData[] {
+  if (departures.length === 0) return [];
 
-    if (matching.length === 0) return route;
-
-    // Pick closest vehicle to reference point
-    const closest = matching.reduce((best, d) => {
-      if (!d.location) return best;
-      if (!best) return d;
-      const distD = haversineKm(REF_LAT, REF_LNG, d.location.lat, d.location.lng);
-      const distBest = best.location
-        ? haversineKm(REF_LAT, REF_LNG, best.location.lat, best.location.lng)
-        : Infinity;
-      return distD < distBest ? d : best;
-    }, null as LiveDeparture | null);
-
-    if (!closest) return route;
-
-    // Estimate minutes away
-    let estMins = 0;
-    if (closest.minutesAway !== null && closest.minutesAway !== undefined) {
-      estMins = closest.minutesAway;
-    } else if (closest.location) {
-      const distKm = haversineKm(REF_LAT, REF_LNG, closest.location.lat, closest.location.lng);
-      estMins = Math.round((distKm / 25) * 60);
+  // Group by line, pick closest vehicle per line
+  const byLine = new Map<string, LiveDeparture & { distKm: number }>();
+  for (const dep of departures) {
+    if (!dep.location) continue;
+    const distKm = haversineKm(REF_LAT, REF_LNG, dep.location.lat, dep.location.lng);
+    const lineName = dep.lineName || dep.lineRef;
+    const existing = byLine.get(lineName);
+    if (!existing || distKm < existing.distKm) {
+      byLine.set(lineName, { ...dep, distKm });
     }
+  }
 
-    // Calculate new departure time from now + estimated minutes
-    const now = new Date();
-    const depTime = addMinutes(nowHHMM(), estMins);
+  if (byLine.size === 0) return [];
 
-    // Calculate total journey duration (sum of all legs)
-    const totalMins = route.legs.reduce((sum, l) => {
-      const match = l.duration.match(/(\d+)/);
-      return sum + (match ? parseInt(match[1], 10) : 0);
-    }, 0);
+  // Sort by estimated arrival time (distance-based)
+  const sorted = Array.from(byLine.entries()).sort(
+    ([, a], [, b]) => a.distKm - b.distKm
+  );
 
-    const arrTime = addMinutes(depTime, totalMins - parseInt(busLeg.duration) + estMins > 0 ? totalMins : totalMins);
+  const routes: RouteData[] = [];
+  const types: Array<"fastest" | "least-busy" | "lowest-carbon"> = [
+    "fastest",
+    "least-busy",
+    "lowest-carbon",
+  ];
 
-    // Determine delay
-    const delay = closest.status === "delayed" ? closest.delayMinutes : 0;
+  for (let i = 0; i < Math.min(sorted.length, 3); i++) {
+    const [lineName, dep] = sorted[i];
+    const estMinutes = Math.round((dep.distKm / 25) * 60);
+    const depTime = addMinutes(nowHHMM(), estMinutes);
+
+    // Estimate total journey as bus time + 5 min walk to stop
+    const walkMinutes = 5;
+    const busMinutes = Math.max(estMinutes, 5);
+    const totalMinutes = walkMinutes + busMinutes;
+    const arrTime = addMinutes(nowHHMM(), totalMinutes);
 
     // Crowding from data freshness
-    const recAge = closest.recordedAtTime
-      ? (Date.now() - new Date(closest.recordedAtTime).getTime()) / 60000
+    const recAge = dep.recordedAtTime
+      ? (Date.now() - new Date(dep.recordedAtTime).getTime()) / 60000
       : 0;
-    const crowding: "Low" | "Medium" | "High" = recAge > 5 ? "High" : recAge > 2 ? "Medium" : "Low";
+    const crowding: "Low" | "Medium" | "High" =
+      recAge > 5 ? "High" : recAge > 2 ? "Medium" : "Low";
 
-    return {
-      ...route,
+    const destination = (dep.destination || "").replace(/_/g, " ");
+
+    routes.push({
+      type: types[i] || "fastest",
       departureTime: depTime,
-      arrivalTime: addMinutes(depTime, totalMins),
-      delay: delay > 0 ? delay : undefined,
+      arrivalTime: arrTime,
+      duration: `${totalMinutes} min`,
+      co2: estimateCo2(dep.distKm + 2), // +2km for assumed route length beyond straight-line
       crowding,
-      legs: route.legs.map((l) =>
-        l.line === busLeg.line
-          ? { ...l, duration: estMins <= 1 ? "Due" : `~${estMins} min` }
-          : l
-      ),
-    };
-  });
+      legs: [
+        { mode: "walk", line: "Walk", duration: `${walkMinutes} min` },
+        {
+          mode: "bus",
+          line: lineName,
+          duration: estMinutes <= 1 ? "Due" : `~${estMinutes} min`,
+        },
+      ],
+      delay: dep.delayMinutes > 0 ? dep.delayMinutes : undefined,
+    });
+  }
+
+  return routes;
 }
 
 const RoutesPage = () => {
@@ -161,26 +127,31 @@ const RoutesPage = () => {
   const location = useLocation();
   const { from, to } = (location.state as { from?: string; to?: string }) || {};
 
-  const [routes, setRoutes] = useState<RouteData[]>(staticRoutes);
+  const [routes, setRoutes] = useState<RouteData[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const result = await fetchLiveDepartures();
       if (result.source !== "error" && result.departures.length > 0) {
-        setRoutes(mergeWithLive(staticRoutes, result.departures));
-        setIsLive(true);
+        const built = buildRoutesFromLive(result.departures);
+        setRoutes(built);
+        setIsLive(built.length > 0);
         setLastUpdated(new Date(result.updatedAt));
+        setError(null);
       } else {
-        setRoutes(staticRoutes);
+        setRoutes([]);
         setIsLive(false);
+        setError(result.error || "No buses found in this area");
       }
     } catch {
-      setRoutes(staticRoutes);
+      setRoutes([]);
       setIsLive(false);
+      setError("Could not reach BODS");
     } finally {
       setLoading(false);
     }
@@ -214,7 +185,7 @@ const RoutesPage = () => {
               {from || "Your location"} → {to || "Destination"}
             </p>
             <p className="text-xs text-muted-foreground">
-              {isLive ? "Live times" : "Scheduled times"} · Today
+              {isLive ? "● Live from BODS" : loading ? "Loading…" : "No live data"} · Today
             </p>
           </div>
           <button onClick={refresh} className="p-1.5" aria-label="Refresh">
@@ -226,25 +197,32 @@ const RoutesPage = () => {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="bg-slipstream-gold/10 border border-slipstream-gold/30 rounded-xl p-2.5 flex items-center gap-2 mb-3"
+            className="bg-slipstream-gold/10 border border-slipstream-gold/30 rounded-xl p-3 flex items-center gap-2.5 mb-3"
           >
-            <WifiOff className="w-3.5 h-3.5 text-slipstream-gold shrink-0" />
-            <p className="text-xs text-muted-foreground">Live data unavailable – showing scheduled times</p>
+            <WifiOff className="w-4 h-4 text-slipstream-gold shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">No routes available</p>
+              <p className="text-xs text-muted-foreground">
+                {error || "No buses found near you right now. We'll keep checking every 30 seconds."}
+              </p>
+            </div>
           </motion.div>
         )}
 
-        <div className="space-y-3">
-          {routes.map((route, i) => (
-            <motion.div
-              key={route.type}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1 }}
-            >
-              <RouteCard {...route} />
-            </motion.div>
-          ))}
-        </div>
+        {routes.length > 0 && (
+          <div className="space-y-3">
+            {routes.map((route, i) => (
+              <motion.div
+                key={`${route.type}-${route.legs.map(l => l.line).join("-")}`}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.1 }}
+              >
+                <RouteCard {...route} />
+              </motion.div>
+            ))}
+          </div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}
@@ -252,15 +230,17 @@ const RoutesPage = () => {
           transition={{ delay: 0.4 }}
           className="text-center mt-4 space-y-1"
         >
-          <p className="text-xs text-muted-foreground">
-            Nice one—the green route saves 0.7 kg CO₂e 🌱
-          </p>
+          {isLive && routes.length > 1 && (
+            <p className="text-xs text-muted-foreground">
+              {routes.length} route options from live BODS data 🚌
+            </p>
+          )}
           <p className="text-[10px] text-muted-foreground">
             {isLive && lastUpdated
-              ? `● Live · Updated at ${formatTime(lastUpdated)}`
+              ? `Updated at ${formatTime(lastUpdated)} · data.bus-data.dft.gov.uk`
               : loading
-              ? "Fetching live data…"
-              : "Using scheduled times"}
+              ? "Fetching live data from BODS…"
+              : "Waiting for BODS data"}
           </p>
         </motion.div>
       </div>
