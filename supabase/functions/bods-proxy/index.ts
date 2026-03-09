@@ -38,8 +38,7 @@ serve(async (req) => {
     const siriUrl = `${BODS_BASE_URL}/?${params.toString()}`;
     console.log("Fetching BODS SIRI-VM:", siriUrl.replace(BODS_API_KEY, "***"));
 
-    const response = await fetch(siriUrl, {
-      headers: { "Accept": "application/xml" },
+    const response = await fetch(siriUrl);
     });
 
     if (!response.ok) {
