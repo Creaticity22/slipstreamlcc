@@ -39,7 +39,6 @@ serve(async (req) => {
     console.log("Fetching BODS SIRI-VM:", siriUrl.replace(BODS_API_KEY, "***"));
 
     const response = await fetch(siriUrl);
-    });
 
     if (!response.ok) {
       const errorText = await response.text();
