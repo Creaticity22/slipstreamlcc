@@ -47,7 +47,6 @@ serve(async (req) => {
     }
 
     const xmlText = await response.text();
-    console.log("BODS response length:", xmlText.length, "first 500 chars:", xmlText.substring(0, 500));
 
     // Parse SIRI-VM XML into simplified JSON
     const departures = parseSiriVM(xmlText, stopCodes || []);
