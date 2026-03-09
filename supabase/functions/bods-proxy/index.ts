@@ -34,8 +34,8 @@ serve(async (req) => {
       params.set("lineRef", lineNames.join(","));
     }
 
-    // Fetch SIRI-VM data
-    const siriUrl = `${BODS_BASE_URL}/siri/vm/?${params.toString()}`;
+    // Fetch SIRI-VM data from the datafeed endpoint
+    const siriUrl = `${BODS_BASE_URL}/?${params.toString()}`;
     console.log("Fetching BODS SIRI-VM:", siriUrl.replace(BODS_API_KEY, "***"));
 
     const response = await fetch(siriUrl, {
