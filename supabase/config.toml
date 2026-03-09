@@ -2,3 +2,6 @@ project_id = "onrqkxfafpalrhmtglor"
 
 [functions.chat]
 verify_jwt = false
+
+[functions.bods-proxy]
+verify_jwt = false
