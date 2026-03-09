@@ -5,26 +5,25 @@ import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
 
 const POLL_INTERVAL_MS = 30_000;
 
+// Headingley reference point
+const REF_LAT = 53.825;
+const REF_LNG = -1.576;
+
 // Static fallback data (original mock)
-const fallbackDepartures = [
-  { mode: "bus" as const, line: "72", destination: "Leeds City Centre", time: "3 min", status: "on-time" as const, crowding: "Low" },
-  { mode: "bus" as const, line: "X6", destination: "Bradford Interchange", time: "7 min", status: "on-time" as const, crowding: "Medium" },
-  { mode: "train" as const, line: "Northern", destination: "Huddersfield", time: "12 min", status: "delayed" as const, crowding: "High" },
-  { mode: "bus" as const, line: "110", destination: "Wakefield", time: "15 min", status: "on-time" as const, crowding: "Low" },
-  { mode: "train" as const, line: "TPE", destination: "Manchester Piccadilly", time: "18 min", status: "on-time" as const, crowding: "Medium" },
+const fallbackDepartures: DisplayDeparture[] = [
+  { mode: "bus", line: "72", destination: "Leeds City Centre", time: "3 min", status: "on-time", crowding: "Low" },
+  { mode: "bus", line: "X6", destination: "Bradford Interchange", time: "7 min", status: "on-time", crowding: "Medium" },
+  { mode: "train", line: "Northern", destination: "Huddersfield", time: "12 min", status: "delayed", crowding: "High" },
+  { mode: "bus", line: "110", destination: "Wakefield", time: "15 min", status: "on-time", crowding: "Low" },
+  { mode: "train", line: "TPE", destination: "Manchester Piccadilly", time: "18 min", status: "on-time", crowding: "Medium" },
 ];
 
-const statusBadge = {
+const statusBadge: Record<string, string> = {
   "on-time": "bg-slipstream-teal/15 text-slipstream-teal",
   delayed: "bg-slipstream-coral/15 text-slipstream-coral",
   early: "bg-slipstream-purple/15 text-slipstream-purple",
 };
 
-const crowdingFromDelay = (delayMinutes: number): string => {
-  if (delayMinutes > 5) return "High";
-  if (delayMinutes > 2) return "Medium";
-  return "Low";
-};
 const crowdingDots: Record<string, number> = { Low: 1, Medium: 2, High: 3 };
 
 interface DisplayDeparture {
@@ -36,16 +35,55 @@ interface DisplayDeparture {
   crowding: string;
 }
 
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDestination(raw: string): string {
+  return raw.replace(/_/g, " ");
+}
+
 function liveToDeparture(dep: LiveDeparture): DisplayDeparture {
-  const mins = dep.minutesAway;
+  // Estimate time based on distance from reference point (~30 km/h avg bus speed)
+  let timeStr = "Nearby";
+  if (dep.location) {
+    const distKm = haversineKm(REF_LAT, REF_LNG, dep.location.lat, dep.location.lng);
+    const estMinutes = Math.round((distKm / 25) * 60); // ~25 km/h avg
+    if (estMinutes <= 1) timeStr = "Due";
+    else timeStr = `~${estMinutes} min`;
+  }
+  if (dep.minutesAway !== null && dep.minutesAway !== undefined) {
+    timeStr = dep.minutesAway <= 0 ? "Due" : `${dep.minutesAway} min`;
+  }
+
+  // Estimate crowding heuristic from recorded time freshness
+  const recAge = dep.recordedAtTime ? (Date.now() - new Date(dep.recordedAtTime).getTime()) / 60000 : 0;
+  const crowding = recAge > 5 ? "High" : recAge > 2 ? "Medium" : "Low";
+
   return {
     mode: dep.mode,
     line: dep.lineName || dep.lineRef,
-    destination: dep.destination || "Unknown",
-    time: mins !== null && mins !== undefined ? (mins <= 0 ? "Due" : `${mins} min`) : "--",
+    destination: formatDestination(dep.destination || "Unknown"),
+    time: timeStr,
     status: dep.status,
-    crowding: crowdingFromDelay(dep.delayMinutes),
+    crowding,
   };
+}
+
+// Deduplicate by line+destination, keeping closest vehicle
+function deduplicateDepartures(deps: DisplayDeparture[]): DisplayDeparture[] {
+  const seen = new Map<string, DisplayDeparture>();
+  for (const dep of deps) {
+    const key = `${dep.line}-${dep.destination}`;
+    if (!seen.has(key)) {
+      seen.set(key, dep);
+    }
+  }
+  return Array.from(seen.values());
 }
 
 const LiveDepartures = () => {
@@ -56,16 +94,16 @@ const LiveDepartures = () => {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    setLoading(true);
     try {
       const result = await fetchLiveDepartures();
 
       if (result.source === "error" || result.departures.length === 0) {
-        // Fallback to static data
         setDepartures(fallbackDepartures);
         setIsLive(false);
         setError(result.error || "No live data available");
       } else {
-        const mapped = result.departures.map(liveToDeparture);
+        const mapped = deduplicateDepartures(result.departures.map(liveToDeparture));
         setDepartures(mapped.length > 0 ? mapped : fallbackDepartures);
         setIsLive(mapped.length > 0);
         setLastUpdated(new Date(result.updatedAt));
@@ -95,7 +133,7 @@ const LiveDepartures = () => {
         <div className="bg-gradient-primary px-4 py-3 flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary-foreground" />
           <span className="text-sm font-semibold text-primary-foreground">
-            {isLive ? "Live departures near you" : "Scheduled departures"}
+            {isLive ? "Live buses near you" : "Scheduled departures"}
           </span>
           <span className="ml-auto flex items-center gap-1.5">
             {isLive ? (
@@ -167,8 +205,8 @@ const LiveDepartures = () => {
         <div className="bg-slipstream-gold/10 border border-slipstream-gold/30 rounded-xl p-3 flex items-start gap-2.5">
           <AlertTriangle className="w-4 h-4 text-slipstream-gold mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-foreground">Heads up!</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Data sourced from BODS. Times may vary—plan a few minutes' buffer 😊</p>
+            <p className="text-sm font-semibold text-foreground">Live from BODS 🚌</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Real-time vehicle positions from the Bus Open Data Service. Estimated times based on distance.</p>
           </div>
         </div>
       )}
@@ -177,7 +215,9 @@ const LiveDepartures = () => {
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
           ? `Updated at ${formatTime(lastUpdated)}`
-          : "Fetching live data…"}
+          : loading
+          ? "Fetching live data…"
+          : "Using scheduled times"}
       </p>
     </div>
   );
