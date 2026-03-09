@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import LiveDepartures from "@/components/LiveDepartures";
-import { MapPin } from "lucide-react";
+import LiveMap from "@/components/LiveMap";
+import { MapPin, List, Map } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const LivePage = () => {
   return (
@@ -18,7 +21,24 @@ const LivePage = () => {
           </div>
         </motion.div>
 
-        <LiveDepartures />
+        <Tabs defaultValue="list" className="w-full">
+          <TabsList className="w-full mb-4">
+            <TabsTrigger value="list" className="flex-1 gap-1.5">
+              <List className="w-3.5 h-3.5" />
+              List
+            </TabsTrigger>
+            <TabsTrigger value="map" className="flex-1 gap-1.5">
+              <Map className="w-3.5 h-3.5" />
+              Map
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="list">
+            <LiveDepartures />
+          </TabsContent>
+          <TabsContent value="map">
+            <LiveMap />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
