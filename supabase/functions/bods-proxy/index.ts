@@ -5,7 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const BODS_BASE_URL = "https://data.bus-data.dft.gov.uk/api/v1/datafeed";
+const BODS_DATAFEED_URL = "https://data.bus-data.dft.gov.uk/api/v1/datafeed/";
+const BODS_TIMETABLE_URL = "https://data.bus-data.dft.gov.uk/api/v1/dataset/";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -18,46 +19,16 @@ serve(async (req) => {
       throw new Error("BODS_API_KEY is not configured");
     }
 
-    const { stopCodes, boundingBox, lineNames } = await req.json();
+    const body = await req.json();
+    const { endpoint = "datafeed", boundingBox, lineNames, stopCodes, operatorRef, noc, search, limit } = body;
 
-    // Build SIRI-VM endpoint URL for stop monitoring
-    const params = new URLSearchParams({
-      api_key: BODS_API_KEY,
-    });
-
-    // Use bounding box around Headingley, Leeds area by default
-    if (boundingBox) {
-      params.set("boundingBox", `${boundingBox.minLon},${boundingBox.minLat},${boundingBox.maxLon},${boundingBox.maxLat}`);
+    if (endpoint === "timetable") {
+      return await handleTimetable(BODS_API_KEY, { noc, search, limit, boundingBox });
     }
 
-    if (lineNames && lineNames.length > 0) {
-      params.set("lineRef", lineNames.join(","));
-    }
+    // Default: SIRI-VM live location data
+    return await handleDatafeed(BODS_API_KEY, { boundingBox, lineNames, stopCodes, operatorRef });
 
-    // Fetch SIRI-VM data from the datafeed endpoint
-    const siriUrl = `${BODS_BASE_URL}/?${params.toString()}`;
-    console.log("Fetching BODS SIRI-VM:", siriUrl.replace(BODS_API_KEY, "***"));
-
-    const response = await fetch(siriUrl);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`BODS API error [${response.status}]:`, errorText);
-      throw new Error(`BODS API returned ${response.status}`);
-    }
-
-    const xmlText = await response.text();
-
-    // Parse SIRI-VM XML into simplified JSON
-    const departures = parseSiriVM(xmlText, stopCodes || []);
-
-    return new Response(JSON.stringify({
-      departures,
-      updatedAt: new Date().toISOString(),
-      source: "live",
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   } catch (error) {
     console.error("BODS proxy error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -67,16 +38,137 @@ serve(async (req) => {
       source: "error",
       error: errorMessage,
     }), {
-      status: 200, // Return 200 so frontend can handle fallback gracefully
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
 
-function parseSiriVM(xml: string, stopCodes: string[]): any[] {
+async function handleDatafeed(
+  apiKey: string,
+  opts: { boundingBox?: any; lineNames?: string[]; stopCodes?: string[]; operatorRef?: string }
+) {
+  const params = new URLSearchParams();
+  params.set("api_key", apiKey);
+
+  // boundingBox format: minLongitude,minLatitude,maxLongitude,maxLatitude
+  if (opts.boundingBox) {
+    const bb = opts.boundingBox;
+    params.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
+  }
+
+  // lineRef must be added individually per the BODS API (no comma-separated support)
+  if (opts.lineNames && opts.lineNames.length > 0) {
+    for (const line of opts.lineNames) {
+      params.append("lineRef", line);
+    }
+  }
+
+  if (opts.operatorRef) {
+    params.set("operatorRef", opts.operatorRef);
+  }
+
+  const siriUrl = `${BODS_DATAFEED_URL}?${params.toString()}`;
+  console.log("Fetching BODS SIRI-VM:", siriUrl.replace(apiKey, "***"));
+
+  const response = await fetch(siriUrl);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`BODS API error [${response.status}]:`, errorText.substring(0, 500));
+
+    // If lineRef filter caused the error, retry without it
+    if (opts.lineNames && opts.lineNames.length > 0) {
+      console.log("Retrying without lineRef filter...");
+      const retryParams = new URLSearchParams();
+      retryParams.set("api_key", apiKey);
+      if (opts.boundingBox) {
+        const bb = opts.boundingBox;
+        retryParams.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
+      }
+      const retryUrl = `${BODS_DATAFEED_URL}?${retryParams.toString()}`;
+      console.log("Retry URL:", retryUrl.replace(apiKey, "***"));
+      const retryResponse = await fetch(retryUrl);
+      if (!retryResponse.ok) {
+        const retryError = await retryResponse.text();
+        console.error(`BODS retry error [${retryResponse.status}]:`, retryError.substring(0, 500));
+        throw new Error(`BODS API returned ${retryResponse.status}`);
+      }
+      const xmlText = await retryResponse.text();
+      // Filter in code by line names
+      const departures = parseSiriVM(xmlText, opts.stopCodes || [], opts.lineNames);
+      return new Response(JSON.stringify({
+        departures,
+        updatedAt: new Date().toISOString(),
+        source: "live",
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error(`BODS API returned ${response.status}`);
+  }
+
+  const xmlText = await response.text();
+  const departures = parseSiriVM(xmlText, opts.stopCodes || [], opts.lineNames || []);
+
+  return new Response(JSON.stringify({
+    departures,
+    updatedAt: new Date().toISOString(),
+    source: "live",
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+async function handleTimetable(
+  apiKey: string,
+  opts: { noc?: string[]; search?: string; limit?: number; boundingBox?: any }
+) {
+  const params = new URLSearchParams();
+  params.set("api_key", apiKey);
+  params.set("status", "published");
+
+  if (opts.noc && opts.noc.length > 0) {
+    params.set("noc", opts.noc.join(","));
+  }
+  if (opts.search) {
+    params.set("search", opts.search);
+  }
+  if (opts.limit) {
+    params.set("limit", String(opts.limit));
+  }
+  if (opts.boundingBox) {
+    const bb = opts.boundingBox;
+    // Timetable uses same format: minLon,minLat,maxLon,maxLat
+    params.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
+  }
+
+  const url = `${BODS_TIMETABLE_URL}?${params.toString()}`;
+  console.log("Fetching BODS timetable:", url.replace(apiKey, "***"));
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`BODS Timetable error [${response.status}]:`, errorText.substring(0, 500));
+    throw new Error(`BODS Timetable API returned ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return new Response(JSON.stringify({
+    datasets: data.results || [],
+    count: data.count || 0,
+    updatedAt: new Date().toISOString(),
+    source: "live",
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function parseSiriVM(xml: string, stopCodes: string[], lineFilter: string[]): any[] {
   const departures: any[] = [];
 
-  // Extract VehicleActivity elements
   const activityRegex = /<VehicleActivity>([\s\S]*?)<\/VehicleActivity>/g;
   let match;
 
@@ -91,7 +183,6 @@ function parseSiriVM(xml: string, stopCodes: string[]): any[] {
 
     const recordedAtTime = getText("RecordedAtTime");
     const lineRef = getText("LineRef");
-    const directionRef = getText("DirectionRef");
     const publishedLineName = getText("PublishedLineName") || lineRef;
     const destinationName = getText("DestinationName");
     const destinationRef = getText("DestinationRef");
@@ -99,13 +190,18 @@ function parseSiriVM(xml: string, stopCodes: string[]): any[] {
     const originRef = getText("OriginRef");
     const operatorRef = getText("OperatorRef");
     const vehicleRef = getText("VehicleRef");
-    const bearing = getText("Bearing");
     const longitude = getText("Longitude");
     const latitude = getText("Latitude");
-    const blockRef = getText("BlockRef");
-    const vehicleJourneyRef = getText("VehicleJourneyRef");
 
-    // Extract monitored call info if present
+    // If we have a lineFilter, only include matching lines
+    if (lineFilter.length > 0) {
+      const matchesLine = lineFilter.some(
+        (l) => l === lineRef || l === publishedLineName || lineRef.includes(l) || publishedLineName.includes(l)
+      );
+      if (!matchesLine) continue;
+    }
+
+    // Extract monitored call info
     const monitoredCallMatch = activity.match(/<MonitoredCall>([\s\S]*?)<\/MonitoredCall>/);
     let stopPointRef = "";
     let aimedDepartureTime = "";
@@ -127,7 +223,7 @@ function parseSiriVM(xml: string, stopCodes: string[]): any[] {
       expectedArrivalTime = getMcText("ExpectedArrivalTime");
     }
 
-    // If stopCodes filter provided, only include matching stops
+    // Stop code filter
     if (stopCodes.length > 0 && stopPointRef && !stopCodes.some(sc => stopPointRef.includes(sc))) {
       continue;
     }
@@ -150,13 +246,12 @@ function parseSiriVM(xml: string, stopCodes: string[]): any[] {
       else if (delayMinutes < -1) status = "early";
     }
 
-    // Calculate minutes until departure
+    // Minutes until departure
     let minutesAway: number | null = null;
     const departureStr = expectedDepartureTime || aimedDepartureTime || expectedArrivalTime || aimedArrivalTime;
     if (departureStr) {
       const depTime = new Date(departureStr).getTime();
-      const now = Date.now();
-      minutesAway = Math.max(0, Math.round((depTime - now) / 60000));
+      minutesAway = Math.max(0, Math.round((depTime - Date.now()) / 60000));
     }
 
     departures.push({
@@ -181,6 +276,5 @@ function parseSiriVM(xml: string, stopCodes: string[]): any[] {
   // Sort by minutes away
   departures.sort((a, b) => (a.minutesAway ?? 999) - (b.minutesAway ?? 999));
 
-  // Return top 10
-  return departures.slice(0, 10);
+  return departures.slice(0, 20);
 }
