@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import LiveDepartures from "@/components/LiveDepartures";
 import LiveMap from "@/components/LiveMap";
-import { MapPin, List, Map } from "lucide-react";
+import { MapPin, List, Map as MapIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 const LivePage = () => {
@@ -28,7 +28,7 @@ const LivePage = () => {
               List
             </TabsTrigger>
             <TabsTrigger value="map" className="flex-1 gap-1.5">
-              <Map className="w-3.5 h-3.5" />
+              <MapIcon className="w-3.5 h-3.5" />
               Map
             </TabsTrigger>
           </TabsList>
