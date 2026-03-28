@@ -21,7 +21,11 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { endpoint = "datafeed", boundingBox, lineNames, stopCodes, operatorRef, noc, search, limit } = body;
+    const { endpoint = "datafeed", boundingBox, lineNames, stopCodes, operatorRef, noc, search, limit, lat, lng, radiusKm, atcoAreaCodes } = body;
+
+    if (endpoint === "naptan") {
+      return await handleNaptan({ lat, lng, radiusKm, atcoAreaCodes, boundingBox });
+    }
 
     if (endpoint === "timetable") {
       return await handleTimetable(BODS_API_KEY, { noc, search, limit, boundingBox });
