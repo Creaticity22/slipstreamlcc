@@ -2,12 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Bus, AlertTriangle, Clock, RefreshCw, WifiOff, MapPin } from "lucide-react";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
+import { GeoPosition } from "@/hooks/useGeolocation";
 
 const POLL_INTERVAL_MS = 30_000;
-
-// Headingley reference point
-const REF_LAT = 53.825;
-const REF_LNG = -1.576;
 
 const statusBadge: Record<string, string> = {
   "on-time": "bg-slipstream-teal/15 text-slipstream-teal",
@@ -28,6 +25,11 @@ interface DisplayDeparture {
   distanceKm: number | null;
 }
 
+interface Props {
+  userPosition?: GeoPosition | null;
+  bbox?: { minLat: number; maxLat: number; minLon: number; maxLon: number } | null;
+}
+
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -40,13 +42,13 @@ function formatDestination(raw: string): string {
   return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
-function liveToDeparture(dep: LiveDeparture): DisplayDeparture {
+function liveToDeparture(dep: LiveDeparture, refLat: number, refLng: number): DisplayDeparture {
   let timeStr = "Nearby";
   let distanceKm: number | null = null;
 
   if (dep.location) {
-    distanceKm = haversineKm(REF_LAT, REF_LNG, dep.location.lat, dep.location.lng);
-    const estMinutes = Math.round((distanceKm / 25) * 60); // ~25 km/h avg bus speed
+    distanceKm = haversineKm(refLat, refLng, dep.location.lat, dep.location.lng);
+    const estMinutes = Math.round((distanceKm / 25) * 60);
     if (estMinutes <= 1) timeStr = "Due";
     else timeStr = `~${estMinutes} min`;
   }
@@ -55,7 +57,6 @@ function liveToDeparture(dep: LiveDeparture): DisplayDeparture {
     timeStr = dep.minutesAway <= 0 ? "Due" : `${dep.minutesAway} min`;
   }
 
-  // Crowding estimate from data freshness
   const recAge = dep.recordedAtTime ? (Date.now() - new Date(dep.recordedAtTime).getTime()) / 60000 : 0;
   const crowding = recAge > 5 ? "High" : recAge > 2 ? "Medium" : "Low";
 
@@ -71,7 +72,6 @@ function liveToDeparture(dep: LiveDeparture): DisplayDeparture {
   };
 }
 
-// Deduplicate by line+destination, keeping closest vehicle
 function deduplicateDepartures(deps: DisplayDeparture[]): DisplayDeparture[] {
   const seen = new Map<string, DisplayDeparture>();
   for (const dep of deps) {
@@ -84,24 +84,29 @@ function deduplicateDepartures(deps: DisplayDeparture[]): DisplayDeparture[] {
   return Array.from(seen.values()).sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
 }
 
-const LiveDepartures = () => {
+const LiveDepartures = ({ userPosition, bbox }: Props) => {
   const [departures, setDepartures] = useState<DisplayDeparture[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const refLat = userPosition?.lat ?? 53.825;
+  const refLng = userPosition?.lng ?? -1.576;
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await fetchLiveDepartures();
+      const result = await fetchLiveDepartures(undefined, bbox ?? undefined);
 
       if (result.source === "error" || result.departures.length === 0) {
         setDepartures([]);
         setIsLive(false);
         setError(result.error || "No live data available");
       } else {
-        const mapped = deduplicateDepartures(result.departures.map(liveToDeparture));
+        const mapped = deduplicateDepartures(
+          result.departures.map(d => liveToDeparture(d, refLat, refLng))
+        );
         setDepartures(mapped);
         setIsLive(true);
         setLastUpdated(new Date(result.updatedAt));
@@ -114,7 +119,7 @@ const LiveDepartures = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refLat, refLng, bbox]);
 
   useEffect(() => {
     refresh();
@@ -149,7 +154,7 @@ const LiveDepartures = () => {
           {departures.length === 0 && !loading && (
             <div className="px-4 py-8 text-center">
               <MapPin className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No live buses found in this area right now</p>
+              <p className="text-sm text-muted-foreground">No live buses found near you right now</p>
               <p className="text-xs text-muted-foreground mt-1">Data sourced from BODS – try refreshing in a moment</p>
             </div>
           )}
@@ -193,7 +198,6 @@ const LiveDepartures = () => {
         </div>
       </div>
 
-      {/* Error notice */}
       {!isLive && error && !loading && (
         <div className="bg-slipstream-gold/10 border border-slipstream-gold/30 rounded-xl p-3 flex items-start gap-2.5">
           <WifiOff className="w-4 h-4 text-slipstream-gold mt-0.5 shrink-0" />
@@ -204,7 +208,6 @@ const LiveDepartures = () => {
         </div>
       )}
 
-      {/* Live source badge */}
       {isLive && (
         <div className="bg-slipstream-teal/10 border border-slipstream-teal/30 rounded-xl p-3 flex items-start gap-2.5">
           <Bus className="w-4 h-4 text-slipstream-teal mt-0.5 shrink-0" />
@@ -217,7 +220,6 @@ const LiveDepartures = () => {
         </div>
       )}
 
-      {/* Updated at timestamp */}
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
           ? `Updated at ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk`

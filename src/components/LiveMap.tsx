@@ -4,12 +4,15 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
 import { Bus, RefreshCw, WifiOff } from "lucide-react";
+import { GeoPosition } from "@/hooks/useGeolocation";
 
 const POLL_INTERVAL_MS = 30_000;
-const REF_LAT = 53.825;
-const REF_LNG = -1.576;
 
-// Custom bus icon using inline SVG
+interface Props {
+  userPosition?: GeoPosition | null;
+  bbox?: { minLat: number; maxLat: number; minLon: number; maxLon: number } | null;
+}
+
 function createBusIcon(line: string, status: string) {
   const color = status === "delayed" ? "#e8614d" : status === "early" ? "#7c5cbf" : "#1aa876";
   return L.divIcon({
@@ -41,20 +44,18 @@ function createBusIcon(line: string, status: string) {
   });
 }
 
-// Component to auto-fit bounds when departures change
-function FitBounds({ departures }: { departures: LiveDeparture[] }) {
+function FitBounds({ departures, userLat, userLng }: { departures: LiveDeparture[]; userLat: number; userLng: number }) {
   const map = useMap();
   useEffect(() => {
     const points = departures
       .filter((d) => d.location)
       .map((d) => [d.location!.lat, d.location!.lng] as [number, number]);
-    if (points.length > 0) {
-      // Include reference point
-      points.push([REF_LAT, REF_LNG]);
+    points.push([userLat, userLng]);
+    if (points.length > 1) {
       const bounds = L.latLngBounds(points);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
-  }, [departures, map]);
+  }, [departures, map, userLat, userLng]);
   return null;
 }
 
@@ -72,16 +73,19 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-const LiveMap = () => {
+const LiveMap = ({ userPosition, bbox }: Props) => {
   const [departures, setDepartures] = useState<LiveDeparture[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+  const refLat = userPosition?.lat ?? 53.825;
+  const refLng = userPosition?.lng ?? -1.576;
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await fetchLiveDepartures();
+      const result = await fetchLiveDepartures(undefined, bbox ?? undefined);
       if (result.source !== "error" && result.departures.length > 0) {
         setDepartures(result.departures.filter((d) => d.location));
         setIsLive(true);
@@ -96,7 +100,7 @@ const LiveMap = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [bbox]);
 
   useEffect(() => {
     refresh();
@@ -109,7 +113,6 @@ const LiveMap = () => {
 
   return (
     <div className="space-y-3">
-      {/* Status bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isLive ? (
@@ -129,10 +132,9 @@ const LiveMap = () => {
         </button>
       </div>
 
-      {/* Map container */}
       <div className="rounded-2xl overflow-hidden border border-border shadow-card" style={{ height: "400px" }}>
         <MapContainer
-          center={[REF_LAT, REF_LNG]}
+          center={[refLat, refLng]}
           zoom={13}
           scrollWheelZoom={true}
           style={{ height: "100%", width: "100%" }}
@@ -142,11 +144,11 @@ const LiveMap = () => {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <FitBounds departures={departures} />
+          <FitBounds departures={departures} userLat={refLat} userLng={refLng} />
 
-          {/* Reference point marker */}
+          {/* User location marker */}
           <Marker
-            position={[REF_LAT, REF_LNG]}
+            position={[refLat, refLng]}
             icon={L.divIcon({
               className: "ref-marker",
               html: `<div style="
@@ -163,13 +165,10 @@ const LiveMap = () => {
             <Popup>
               <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 13 }}>
                 📍 Your location
-                <br />
-                <span style={{ fontWeight: 400, fontSize: 11, color: "#666" }}>Headingley Lane</span>
               </div>
             </Popup>
           </Marker>
 
-          {/* Bus markers */}
           {departures.map((dep, i) =>
             dep.location ? (
               <Marker
@@ -186,7 +185,7 @@ const LiveMap = () => {
                       → {formatDestination(dep.destination || "Unknown")}
                     </div>
                     <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
-                      {haversineKm(REF_LAT, REF_LNG, dep.location.lat, dep.location.lng).toFixed(1)} km away
+                      {haversineKm(refLat, refLng, dep.location.lat, dep.location.lng).toFixed(1)} km away
                     </div>
                     <div
                       style={{
@@ -205,7 +204,6 @@ const LiveMap = () => {
         </MapContainer>
       </div>
 
-      {/* Timestamp */}
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
           ? `Updated at ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk`

@@ -1,11 +1,20 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
 import LiveDepartures from "@/components/LiveDepartures";
 import LiveMap from "@/components/LiveMap";
-import { MapPin, List, Map as MapIcon } from "lucide-react";
+import { MapPin, List, Map as MapIcon, Locate, Loader2 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 const LivePage = () => {
+  const geo = useGeolocation(true);
+  const bbox = geo.toBbox(10);
+
+  const locationLabel = geo.error
+    ? "Using default location"
+    : geo.loading
+    ? "Finding you…"
+    : "Near your location";
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-6">
@@ -16,8 +25,17 @@ const LivePage = () => {
         >
           <h1 className="text-2xl font-display font-bold text-foreground">Live updates ⏱️</h1>
           <div className="flex items-center gap-1.5 mt-1">
-            <MapPin className="w-3.5 h-3.5 text-primary" />
-            <p className="text-sm text-muted-foreground">Near Headingley Lane</p>
+            {geo.loading ? (
+              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
+            ) : (
+              <MapPin className="w-3.5 h-3.5 text-primary" />
+            )}
+            <p className="text-sm text-muted-foreground">{locationLabel}</p>
+            {!geo.loading && (
+              <button onClick={geo.refresh} className="ml-1 p-0.5 rounded hover:bg-muted" aria-label="Re-locate">
+                <Locate className="w-3 h-3 text-muted-foreground" />
+              </button>
+            )}
           </div>
         </motion.div>
 
@@ -33,10 +51,10 @@ const LivePage = () => {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="list">
-            <LiveDepartures />
+            <LiveDepartures userPosition={geo.position} bbox={bbox} />
           </TabsContent>
           <TabsContent value="map">
-            <LiveMap />
+            <LiveMap userPosition={geo.position} bbox={bbox} />
           </TabsContent>
         </Tabs>
       </div>
