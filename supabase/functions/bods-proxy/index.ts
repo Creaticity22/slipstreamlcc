@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const BODS_DATAFEED_URL = "https://data.bus-data.dft.gov.uk/api/v1/datafeed/";
 const BODS_TIMETABLE_URL = "https://data.bus-data.dft.gov.uk/api/v1/dataset/";
+const NAPTAN_URL = "https://naptan.api.dft.gov.uk/v1/access-nodes";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
