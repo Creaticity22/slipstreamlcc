@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
-import { Bus, RefreshCw, WifiOff } from "lucide-react";
+import { Bus, RefreshCw, WifiOff, Navigation } from "lucide-react";
 import { GeoPosition } from "@/hooks/useGeolocation";
+import { getWalkingDirections, WalkingRoute, formatDistance, formatWalkTime } from "@/services/directionsService";
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -44,9 +45,14 @@ function createBusIcon(line: string, status: string) {
   });
 }
 
-function FitBounds({ departures, userLat, userLng }: { departures: LiveDeparture[]; userLat: number; userLng: number }) {
+function FitBounds({ departures, userLat, userLng, walkingRoute }: { departures: LiveDeparture[]; userLat: number; userLng: number; walkingRoute: WalkingRoute | null }) {
   const map = useMap();
   useEffect(() => {
+    if (walkingRoute && walkingRoute.geometry.length > 0) {
+      const bounds = L.latLngBounds(walkingRoute.geometry);
+      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+      return;
+    }
     const points = departures
       .filter((d) => d.location)
       .map((d) => [d.location!.lat, d.location!.lng] as [number, number]);
@@ -55,7 +61,7 @@ function FitBounds({ departures, userLat, userLng }: { departures: LiveDeparture
       const bounds = L.latLngBounds(points);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
-  }, [departures, map, userLat, userLng]);
+  }, [departures, map, userLat, userLng, walkingRoute]);
   return null;
 }
 
@@ -78,6 +84,8 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [walkingRoute, setWalkingRoute] = useState<WalkingRoute | null>(null);
+  const [walkingTarget, setWalkingTarget] = useState<string | null>(null);
 
   const refLat = userPosition?.lat ?? 53.825;
   const refLng = userPosition?.lng ?? -1.576;
@@ -108,6 +116,19 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
     return () => clearInterval(interval);
   }, [refresh]);
 
+  const handleWalkTo = async (dep: LiveDeparture) => {
+    if (!userPosition || !dep.location) return;
+    const key = dep.vehicleRef;
+    if (walkingTarget === key) {
+      setWalkingRoute(null);
+      setWalkingTarget(null);
+      return;
+    }
+    setWalkingTarget(key);
+    const route = await getWalkingDirections(userPosition, dep.location.lat, dep.location.lng);
+    setWalkingRoute(route);
+  };
+
   const formatTime = (d: Date) =>
     d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
@@ -126,10 +147,25 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
               <WifiOff className="w-3 h-3" /> No live data
             </span>
           )}
+          {walkingRoute && (
+            <span className="text-xs text-primary font-medium">
+              🚶 {formatWalkTime(walkingRoute.totalDuration)} · {formatDistance(walkingRoute.totalDistance)}
+            </span>
+          )}
         </div>
-        <button onClick={refresh} className="p-1 rounded-lg hover:bg-muted transition-colors" aria-label="Refresh">
-          <RefreshCw className={`w-3.5 h-3.5 text-muted-foreground ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center gap-1">
+          {walkingRoute && (
+            <button
+              onClick={() => { setWalkingRoute(null); setWalkingTarget(null); }}
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-muted transition-colors"
+            >
+              Clear route
+            </button>
+          )}
+          <button onClick={refresh} className="p-1 rounded-lg hover:bg-muted transition-colors" aria-label="Refresh">
+            <RefreshCw className={`w-3.5 h-3.5 text-muted-foreground ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
       <div className="rounded-2xl overflow-hidden border border-border shadow-card" style={{ height: "400px" }}>
@@ -144,7 +180,21 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <FitBounds departures={departures} userLat={refLat} userLng={refLng} />
+          <FitBounds departures={departures} userLat={refLat} userLng={refLng} walkingRoute={walkingRoute} />
+
+          {/* Walking route polyline */}
+          {walkingRoute && walkingRoute.geometry.length > 0 && (
+            <Polyline
+              positions={walkingRoute.geometry}
+              pathOptions={{
+                color: "#1aa876",
+                weight: 4,
+                opacity: 0.8,
+                dashArray: "8, 12",
+                lineCap: "round",
+              }}
+            />
+          )}
 
           {/* User location marker */}
           <Marker
@@ -175,26 +225,41 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
                 key={`${dep.vehicleRef}-${i}`}
                 position={[dep.location.lat, dep.location.lng]}
                 icon={createBusIcon(dep.lineName || dep.lineRef, dep.status)}
+                eventHandlers={{
+                  click: () => handleWalkTo(dep),
+                }}
               >
                 <Popup>
-                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 160 }}>
+                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 170 }}>
                     <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
                       🚌 {dep.lineName || dep.lineRef}
                     </div>
                     <div style={{ fontSize: 12, color: "#333", marginBottom: 2 }}>
                       → {formatDestination(dep.destination || "Unknown")}
                     </div>
-                    <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
+                    <div style={{ fontSize: 11, color: "#666", marginBottom: 4 }}>
                       {haversineKm(refLat, refLng, dep.location.lat, dep.location.lng).toFixed(1)} km away
                     </div>
                     <div
                       style={{
                         fontSize: 10,
                         fontWeight: 600,
+                        marginBottom: 6,
                         color: dep.status === "delayed" ? "#e8614d" : dep.status === "early" ? "#7c5cbf" : "#1aa876",
                       }}
                     >
                       {dep.status === "on-time" ? "On time" : dep.status === "delayed" ? "Delayed" : "Early"}
+                    </div>
+                    <div style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: "#1aa876",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                      cursor: "pointer",
+                    }}>
+                      🚶 Tap for walking directions
                     </div>
                   </div>
                 </Popup>
