@@ -4,11 +4,9 @@ import { ArrowLeft, WifiOff, RefreshCw, Bus } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import RouteCard from "@/components/RouteCard";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
+import { useGeolocation } from "@/hooks/useGeolocation";
 
 const POLL_INTERVAL_MS = 30_000;
-
-const REF_LAT = 53.825;
-const REF_LNG = -1.576;
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
@@ -44,21 +42,18 @@ function nowHHMM(): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-// CO₂ estimate: bus ~0.089 kg/km, walk = 0
 function estimateCo2(distKm: number): string {
   const co2 = distKm * 0.089;
   return `${co2.toFixed(1)} kg CO₂e`;
 }
 
-/** Build route options entirely from BODS live departures */
-function buildRoutesFromLive(departures: LiveDeparture[]): RouteData[] {
+function buildRoutesFromLive(departures: LiveDeparture[], refLat: number, refLng: number): RouteData[] {
   if (departures.length === 0) return [];
 
-  // Group by line, pick closest vehicle per line
   const byLine = new Map<string, LiveDeparture & { distKm: number }>();
   for (const dep of departures) {
     if (!dep.location) continue;
-    const distKm = haversineKm(REF_LAT, REF_LNG, dep.location.lat, dep.location.lng);
+    const distKm = haversineKm(refLat, refLng, dep.location.lat, dep.location.lng);
     const lineName = dep.lineName || dep.lineRef;
     const existing = byLine.get(lineName);
     if (!existing || distKm < existing.distKm) {
@@ -68,7 +63,6 @@ function buildRoutesFromLive(departures: LiveDeparture[]): RouteData[] {
 
   if (byLine.size === 0) return [];
 
-  // Sort by estimated arrival time (distance-based)
   const sorted = Array.from(byLine.entries()).sort(
     ([, a], [, b]) => a.distKm - b.distKm
   );
@@ -85,27 +79,23 @@ function buildRoutesFromLive(departures: LiveDeparture[]): RouteData[] {
     const estMinutes = Math.round((dep.distKm / 25) * 60);
     const depTime = addMinutes(nowHHMM(), estMinutes);
 
-    // Estimate total journey as bus time + 5 min walk to stop
     const walkMinutes = 5;
     const busMinutes = Math.max(estMinutes, 5);
     const totalMinutes = walkMinutes + busMinutes;
     const arrTime = addMinutes(nowHHMM(), totalMinutes);
 
-    // Crowding from data freshness
     const recAge = dep.recordedAtTime
       ? (Date.now() - new Date(dep.recordedAtTime).getTime()) / 60000
       : 0;
     const crowding: "Low" | "Medium" | "High" =
       recAge > 5 ? "High" : recAge > 2 ? "Medium" : "Low";
 
-    const destination = (dep.destination || "").replace(/_/g, " ");
-
     routes.push({
       type: types[i] || "fastest",
       departureTime: depTime,
       arrivalTime: arrTime,
       duration: `${totalMinutes} min`,
-      co2: estimateCo2(dep.distKm + 2), // +2km for assumed route length beyond straight-line
+      co2: estimateCo2(dep.distKm + 2),
       crowding,
       legs: [
         { mode: "walk", line: "Walk", duration: `${walkMinutes} min` },
@@ -125,7 +115,17 @@ function buildRoutesFromLive(departures: LiveDeparture[]): RouteData[] {
 const RoutesPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { from, to } = (location.state as { from?: string; to?: string }) || {};
+  const { from, to, userLat, userLng } = (location.state as {
+    from?: string;
+    to?: string;
+    userLat?: number;
+    userLng?: number;
+  }) || {};
+
+  const geo = useGeolocation();
+  const refLat = userLat ?? geo.position?.lat ?? 53.825;
+  const refLng = userLng ?? geo.position?.lng ?? -1.576;
+  const bbox = geo.toBbox(10);
 
   const [routes, setRoutes] = useState<RouteData[]>([]);
   const [isLive, setIsLive] = useState(false);
@@ -136,9 +136,9 @@ const RoutesPage = () => {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await fetchLiveDepartures();
+      const result = await fetchLiveDepartures(undefined, bbox ?? undefined);
       if (result.source !== "error" && result.departures.length > 0) {
-        const built = buildRoutesFromLive(result.departures);
+        const built = buildRoutesFromLive(result.departures, refLat, refLng);
         setRoutes(built);
         setIsLive(built.length > 0);
         setLastUpdated(new Date(result.updatedAt));
@@ -146,7 +146,7 @@ const RoutesPage = () => {
       } else {
         setRoutes([]);
         setIsLive(false);
-        setError(result.error || "No buses found in this area");
+        setError(result.error || "No buses found near you");
       }
     } catch {
       setRoutes([]);
@@ -155,7 +155,7 @@ const RoutesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [refLat, refLng, bbox]);
 
   useEffect(() => {
     refresh();
