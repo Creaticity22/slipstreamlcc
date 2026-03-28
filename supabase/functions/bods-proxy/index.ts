@@ -57,7 +57,7 @@ async function handleDatafeed(
     params.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
   }
 
-  // lineRef must be added individually per the BODS API (no comma-separated support)
+  // lineRef filter (optional – omit to get all lines)
   if (opts.lineNames && opts.lineNames.length > 0) {
     for (const line of opts.lineNames) {
       params.append("lineRef", line);
@@ -276,5 +276,6 @@ function parseSiriVM(xml: string, stopCodes: string[], lineFilter: string[]): an
   // Sort by minutes away
   departures.sort((a, b) => (a.minutesAway ?? 999) - (b.minutesAway ?? 999));
 
-  return departures.slice(0, 20);
+  // Return more results for national coverage
+  return departures.slice(0, 50);
 }
