@@ -46,29 +46,23 @@ export interface TimetableResponse {
   error?: string;
 }
 
-// Wider Leeds/Bradford area bounding box
-const LEEDS_BBOX = {
-  minLat: 53.75,
-  maxLat: 53.87,
-  minLon: -1.70,
-  maxLon: -1.45,
-};
-
-// Lines shown in the app
-const TRACKED_LINES = ["72", "X6", "110"];
+// No default bounding box – fetch nationally
+// Pass a bbox to restrict to a specific area if needed
 
 export async function fetchLiveDepartures(
   lines?: string[],
-  bbox?: typeof LEEDS_BBOX
+  bbox?: { minLat: number; maxLat: number; minLon: number; maxLon: number }
 ): Promise<BodsResponse> {
   try {
+    const body: Record<string, unknown> = {
+      endpoint: "datafeed",
+      stopCodes: [],
+    };
+    if (bbox) body.boundingBox = bbox;
+    if (lines && lines.length > 0) body.lineNames = lines;
+
     const { data, error } = await supabase.functions.invoke("bods-proxy", {
-      body: {
-        endpoint: "datafeed",
-        boundingBox: bbox || LEEDS_BBOX,
-        lineNames: lines || TRACKED_LINES,
-        stopCodes: [],
-      },
+      body,
     });
 
     if (error) {
@@ -95,17 +89,20 @@ export async function fetchLiveDepartures(
 
 export async function fetchTimetableDatasets(
   searchTerm?: string,
-  noc?: string[]
+  noc?: string[],
+  bbox?: { minLat: number; maxLat: number; minLon: number; maxLon: number }
 ): Promise<TimetableResponse> {
   try {
+    const body: Record<string, unknown> = {
+      endpoint: "timetable",
+      search: searchTerm,
+      noc,
+      limit: 20,
+    };
+    if (bbox) body.boundingBox = bbox;
+
     const { data, error } = await supabase.functions.invoke("bods-proxy", {
-      body: {
-        endpoint: "timetable",
-        search: searchTerm,
-        noc,
-        limit: 20,
-        boundingBox: LEEDS_BBOX,
-      },
+      body,
     });
 
     if (error) {
