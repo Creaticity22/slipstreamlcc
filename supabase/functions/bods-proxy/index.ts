@@ -7,6 +7,7 @@ const corsHeaders = {
 
 const BODS_DATAFEED_URL = "https://data.bus-data.dft.gov.uk/api/v1/datafeed/";
 const BODS_TIMETABLE_URL = "https://data.bus-data.dft.gov.uk/api/v1/dataset/";
+const NAPTAN_URL = "https://naptan.api.dft.gov.uk/v1/access-nodes";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -20,7 +21,11 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { endpoint = "datafeed", boundingBox, lineNames, stopCodes, operatorRef, noc, search, limit } = body;
+    const { endpoint = "datafeed", boundingBox, lineNames, stopCodes, operatorRef, noc, search, limit, lat, lng, radiusKm, atcoAreaCodes } = body;
+
+    if (endpoint === "naptan") {
+      return await handleNaptan({ lat, lng, radiusKm, atcoAreaCodes, boundingBox });
+    }
 
     if (endpoint === "timetable") {
       return await handleTimetable(BODS_API_KEY, { noc, search, limit, boundingBox });
@@ -278,4 +283,155 @@ function parseSiriVM(xml: string, stopCodes: string[], lineFilter: string[]): an
 
   // Return more results for national coverage
   return departures.slice(0, 50);
+}
+
+// In-memory NaPTAN cache keyed by ATCO area codes
+const naptanCache: Map<string, { data: any[]; fetchedAt: number }> = new Map();
+const NAPTAN_CACHE_TTL = 3600_000; // 1 hour
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Determine ATCO area codes from lat/lng (approximate mapping for major English regions)
+function guessAtcoAreas(lat: number, lng: number): string[] {
+  // Major metropolitan areas with their approximate centres and ATCO codes
+  const areas: { code: string; lat: number; lng: number; radius: number }[] = [
+    { code: "450", lat: 53.8, lng: -1.55, radius: 40 },  // West Yorkshire
+    { code: "320", lat: 53.48, lng: -2.24, radius: 30 },  // Greater Manchester
+    { code: "410", lat: 53.74, lng: -0.35, radius: 30 },  // East Yorkshire / Hull
+    { code: "370", lat: 53.38, lng: -1.47, radius: 30 },  // South Yorkshire
+    { code: "290", lat: 52.48, lng: -1.89, radius: 30 },  // West Midlands
+    { code: "240", lat: 51.51, lng: -0.13, radius: 40 },  // London
+    { code: "340", lat: 54.97, lng: -1.61, radius: 30 },  // Tyne and Wear
+    { code: "350", lat: 53.75, lng: -1.0, radius: 30 },   // North Yorkshire
+    { code: "250", lat: 53.41, lng: -2.99, radius: 30 },  // Merseyside
+    { code: "440", lat: 53.57, lng: -1.48, radius: 30 },  // Wakefield area
+    { code: "460", lat: 53.59, lng: -1.8, radius: 30 },   // Calderdale/Kirklees
+  ];
+
+  const matched = areas
+    .filter(a => haversineKm(lat, lng, a.lat, a.lng) < a.radius)
+    .map(a => a.code);
+
+  // Default to West Yorkshire if nothing matched
+  return matched.length > 0 ? matched : ["450"];
+}
+
+async function handleNaptan(opts: {
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+  atcoAreaCodes?: string[];
+  boundingBox?: any;
+}) {
+  const lat = opts.lat ?? 53.825;
+  const lng = opts.lng ?? -1.576;
+  const radiusKm = opts.radiusKm ?? 1;
+  const codes = opts.atcoAreaCodes ?? guessAtcoAreas(lat, lng);
+  const cacheKey = codes.sort().join(",");
+
+  // Check cache
+  const cached = naptanCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < NAPTAN_CACHE_TTL) {
+    console.log(`NaPTAN cache hit for ${cacheKey}`);
+    const nearby = filterByProximity(cached.data, lat, lng, radiusKm);
+    return new Response(JSON.stringify({
+      stops: nearby,
+      count: nearby.length,
+      source: "cached",
+      updatedAt: new Date(cached.fetchedAt).toISOString(),
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Fetch from NaPTAN API
+  const url = `${NAPTAN_URL}?atcoAreaCodes=${codes.join(",")}&dataFormat=csv`;
+  console.log("Fetching NaPTAN data:", url);
+  const response = await fetch(url);
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error(`NaPTAN error [${response.status}]:`, errText.substring(0, 300));
+    throw new Error(`NaPTAN API returned ${response.status}`);
+  }
+
+  const csvText = await response.text();
+  const stops = parseNaptanCsv(csvText);
+  console.log(`Parsed ${stops.length} NaPTAN stops for areas ${cacheKey}`);
+
+  // Cache the full dataset
+  naptanCache.set(cacheKey, { data: stops, fetchedAt: Date.now() });
+
+  const nearby = filterByProximity(stops, lat, lng, radiusKm);
+
+  return new Response(JSON.stringify({
+    stops: nearby,
+    count: nearby.length,
+    source: "live",
+    updatedAt: new Date().toISOString(),
+  }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function parseNaptanCsv(csv: string): any[] {
+  const lines = csv.split("\n");
+  if (lines.length < 2) return [];
+
+  const header = lines[0].split(",");
+  const atcoIdx = header.indexOf("ATCOCode");
+  const nameIdx = header.indexOf("CommonName");
+  const indIdx = header.indexOf("Indicator");
+  const streetIdx = header.indexOf("Street");
+  const localityIdx = header.indexOf("LocalityName");
+  const latIdx = header.indexOf("Latitude");
+  const lngIdx = header.indexOf("Longitude");
+  const typeIdx = header.indexOf("StopType");
+  const statusIdx = header.indexOf("Status");
+  const bearingIdx = header.indexOf("Bearing");
+
+  const stops: any[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(",");
+    if (cols.length < Math.max(latIdx, lngIdx, typeIdx, statusIdx) + 1) continue;
+
+    const status = cols[statusIdx]?.trim();
+    if (status !== "active") continue;
+
+    const stopType = cols[typeIdx]?.trim();
+    // Only bus stops (BCT = Bus Coach Tram, BCS = Bus Coach Station bay)
+    if (stopType !== "BCT" && stopType !== "BCS" && stopType !== "BCQ") continue;
+
+    const lat = parseFloat(cols[latIdx]);
+    const lng = parseFloat(cols[lngIdx]);
+    if (isNaN(lat) || isNaN(lng)) continue;
+
+    stops.push({
+      atcoCode: cols[atcoIdx]?.trim(),
+      name: cols[nameIdx]?.trim(),
+      indicator: cols[indIdx]?.trim(),
+      street: cols[streetIdx]?.trim(),
+      locality: cols[localityIdx]?.trim(),
+      bearing: cols[bearingIdx]?.trim(),
+      lat,
+      lng,
+      stopType,
+    });
+  }
+
+  return stops;
+}
+
+function filterByProximity(stops: any[], lat: number, lng: number, radiusKm: number): any[] {
+  return stops
+    .map(s => ({ ...s, distanceKm: haversineKm(lat, lng, s.lat, s.lng) }))
+    .filter(s => s.distanceKm <= radiusKm)
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+    .slice(0, 30);
 }

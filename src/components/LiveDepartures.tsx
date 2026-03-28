@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bus, AlertTriangle, Clock, RefreshCw, WifiOff, MapPin, Navigation } from "lucide-react";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
+import { fetchNearbyStops, NaptanStop, formatStopLabel } from "@/services/naptanService";
 import { GeoPosition } from "@/hooks/useGeolocation";
 import { getWalkingDirections, WalkingRoute } from "@/services/directionsService";
 import WalkingDirections from "@/components/WalkingDirections";
@@ -90,8 +91,24 @@ function deduplicateDepartures(deps: DisplayDeparture[]): DisplayDeparture[] {
   return Array.from(seen.values()).sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999));
 }
 
+/** Find the closest NaPTAN stop to a bus position */
+function findNearestStop(busLat: number, busLng: number, stops: NaptanStop[]): NaptanStop | null {
+  if (stops.length === 0) return null;
+  let best = stops[0];
+  let bestDist = haversineKm(busLat, busLng, best.lat, best.lng);
+  for (let i = 1; i < stops.length; i++) {
+    const d = haversineKm(busLat, busLng, stops[i].lat, stops[i].lng);
+    if (d < bestDist) {
+      bestDist = d;
+      best = stops[i];
+    }
+  }
+  return bestDist < 2 ? best : null; // Only match within 2km
+}
+
 const LiveDepartures = ({ userPosition, bbox }: Props) => {
   const [departures, setDepartures] = useState<DisplayDeparture[]>([]);
+  const [nearbyStops, setNearbyStops] = useState<NaptanStop[]>([]);
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,9 +116,18 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
   const [walkingRoute, setWalkingRoute] = useState<WalkingRoute | null>(null);
   const [walkingLoading, setWalkingLoading] = useState(false);
   const [selectedBus, setSelectedBus] = useState<string | null>(null);
+  const [selectedStopName, setSelectedStopName] = useState<string>("");
 
   const refLat = userPosition?.lat ?? 53.825;
   const refLng = userPosition?.lng ?? -1.576;
+
+  // Fetch nearby stops once when position is available
+  useEffect(() => {
+    if (!userPosition) return;
+    fetchNearbyStops(userPosition.lat, userPosition.lng, 1).then(res => {
+      if (res.stops.length > 0) setNearbyStops(res.stops);
+    });
+  }, [userPosition?.lat, userPosition?.lng]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -146,7 +172,14 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
     }
     setSelectedBus(key);
     setWalkingLoading(true);
-    const route = await getWalkingDirections(userPosition, dep.busLat, dep.busLng);
+
+    // Try to find the nearest actual bus stop to the bus position
+    const nearestStop = findNearestStop(dep.busLat, dep.busLng, nearbyStops);
+    const targetLat = nearestStop?.lat ?? dep.busLat;
+    const targetLng = nearestStop?.lng ?? dep.busLng;
+    setSelectedStopName(nearestStop ? formatStopLabel(nearestStop) : dep.destination);
+
+    const route = await getWalkingDirections(userPosition, targetLat, targetLng);
     setWalkingRoute(route);
     setWalkingLoading(false);
   };
@@ -156,6 +189,47 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
 
   return (
     <div className="space-y-4">
+      {/* Nearby stops summary */}
+      {nearbyStops.length > 0 && (
+        <div className="bg-card rounded-2xl shadow-card border border-border p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <MapPin className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">
+              {nearbyStops.length} bus stop{nearbyStops.length !== 1 ? "s" : ""} nearby
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+            {nearbyStops.slice(0, 5).map(stop => (
+              <button
+                key={stop.atcoCode}
+                onClick={async () => {
+                  if (!userPosition) return;
+                  setSelectedBus(`stop-${stop.atcoCode}`);
+                  setSelectedStopName(formatStopLabel(stop));
+                  setWalkingLoading(true);
+                  const route = await getWalkingDirections(userPosition, stop.lat, stop.lng);
+                  setWalkingRoute(route);
+                  setWalkingLoading(false);
+                }}
+                className={`shrink-0 rounded-xl px-3 py-2 text-xs font-medium border transition-colors ${
+                  selectedBus === `stop-${stop.atcoCode}`
+                    ? "bg-primary/10 border-primary/30 text-primary"
+                    : "bg-muted border-border text-foreground hover:bg-muted/80"
+                }`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>🚏</span>
+                  <span className="whitespace-nowrap">{stop.name}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">
+                  {(stop.distanceKm * 1000).toFixed(0)}m · {stop.street !== "*" ? stop.street : stop.locality}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-card rounded-2xl shadow-card overflow-hidden border border-border">
         <div className="bg-gradient-primary px-4 py-3 flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary-foreground" />
@@ -185,6 +259,7 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
           {departures.map((dep, i) => {
             const key = `${dep.line}-${dep.destination}`;
             const isSelected = selectedBus === key;
+            const nearestStop = dep.busLat && dep.busLng ? findNearestStop(dep.busLat, dep.busLng, nearbyStops) : null;
             return (
               <motion.div
                 key={`${key}-${i}`}
@@ -202,7 +277,7 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
                     <span className="text-sm font-bold text-foreground">{dep.line}</span>
                     <span className="text-sm text-foreground truncate">{dep.destination}</span>
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5">
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${statusBadge[dep.status]}`}>
                       {dep.status === "delayed" && <AlertTriangle className="w-2.5 h-2.5 inline mr-0.5" />}
                       {dep.status === "on-time" ? "On time" : dep.status === "delayed" ? "Delayed" : "Early"}
@@ -215,8 +290,11 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
                         />
                       ))}
                     </div>
+                    {nearestStop && (
+                      <span className="text-[10px] text-primary font-medium">🚏 {nearestStop.name}</span>
+                    )}
                     {dep.distanceKm !== null && (
-                      <span className="text-[10px] text-muted-foreground">{dep.distanceKm.toFixed(1)} km away</span>
+                      <span className="text-[10px] text-muted-foreground">{dep.distanceKm.toFixed(1)} km</span>
                     )}
                   </div>
                 </div>
@@ -238,7 +316,7 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
           <WalkingDirections
             route={walkingRoute}
             loading={walkingLoading}
-            stopName={departures.find(d => `${d.line}-${d.destination}` === selectedBus)?.destination || "bus stop"}
+            stopName={selectedStopName}
             onClose={() => {
               setSelectedBus(null);
               setWalkingRoute(null);
@@ -263,7 +341,7 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
           <div>
             <p className="text-sm font-semibold text-foreground">Live from BODS 🚌</p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Real-time vehicle positions · Tap a bus for walking directions
+              Real-time bus positions · Tap for walking directions to the nearest stop
             </p>
           </div>
         </div>
@@ -271,7 +349,7 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
 
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
-          ? `Updated at ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk`
+          ? `Updated at ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk · Stops: NaPTAN`
           : loading
           ? "Fetching live data from BODS…"
           : "No data available"}
