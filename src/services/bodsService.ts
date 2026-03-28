@@ -46,8 +46,13 @@ export interface TimetableResponse {
   error?: string;
 }
 
-// No default bounding box – fetch nationally
-// Pass a bbox to restrict to a specific area if needed
+// England-wide bounding box as default for national coverage
+const ENGLAND_BBOX = {
+  minLat: 49.9,
+  maxLat: 55.8,
+  minLon: -5.7,
+  maxLon: 1.8,
+};
 
 export async function fetchLiveDepartures(
   lines?: string[],
@@ -56,9 +61,9 @@ export async function fetchLiveDepartures(
   try {
     const body: Record<string, unknown> = {
       endpoint: "datafeed",
+      boundingBox: bbox || ENGLAND_BBOX,
       stopCodes: [],
     };
-    if (bbox) body.boundingBox = bbox;
     if (lines && lines.length > 0) body.lineNames = lines;
 
     const { data, error } = await supabase.functions.invoke("bods-proxy", {
@@ -98,8 +103,8 @@ export async function fetchTimetableDatasets(
       search: searchTerm,
       noc,
       limit: 20,
+      boundingBox: bbox || ENGLAND_BBOX,
     };
-    if (bbox) body.boundingBox = bbox;
 
     const { data, error } = await supabase.functions.invoke("bods-proxy", {
       body,
