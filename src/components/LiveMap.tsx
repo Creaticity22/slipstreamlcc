@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, CircleMarker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
-import { Bus, RefreshCw, WifiOff, Navigation } from "lucide-react";
+import { fetchNearbyStops, NaptanStop, formatStopLabel } from "@/services/naptanService";
+import { Bus, RefreshCw, WifiOff } from "lucide-react";
 import { GeoPosition } from "@/hooks/useGeolocation";
 import { getWalkingDirections, WalkingRoute, formatDistance, formatWalkTime } from "@/services/directionsService";
 
@@ -45,6 +46,22 @@ function createBusIcon(line: string, status: string) {
   });
 }
 
+function createStopIcon() {
+  return L.divIcon({
+    className: "stop-marker",
+    html: `<div style="
+      width: 10px; height: 10px;
+      background: hsl(270 60% 55%);
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    "></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
+    popupAnchor: [0, -8],
+  });
+}
+
 function FitBounds({ departures, userLat, userLng, walkingRoute }: { departures: LiveDeparture[]; userLat: number; userLng: number; walkingRoute: WalkingRoute | null }) {
   const map = useMap();
   useEffect(() => {
@@ -81,6 +98,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 
 const LiveMap = ({ userPosition, bbox }: Props) => {
   const [departures, setDepartures] = useState<LiveDeparture[]>([]);
+  const [nearbyStops, setNearbyStops] = useState<NaptanStop[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -89,6 +107,14 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
 
   const refLat = userPosition?.lat ?? 53.825;
   const refLng = userPosition?.lng ?? -1.576;
+
+  // Fetch nearby NaPTAN stops
+  useEffect(() => {
+    if (!userPosition) return;
+    fetchNearbyStops(userPosition.lat, userPosition.lng, 1).then(res => {
+      if (res.stops.length > 0) setNearbyStops(res.stops);
+    });
+  }, [userPosition?.lat, userPosition?.lng]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -116,16 +142,16 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  const handleWalkTo = async (dep: LiveDeparture) => {
-    if (!userPosition || !dep.location) return;
-    const key = dep.vehicleRef;
+  const handleWalkToStop = async (stop: NaptanStop) => {
+    if (!userPosition) return;
+    const key = stop.atcoCode;
     if (walkingTarget === key) {
       setWalkingRoute(null);
       setWalkingTarget(null);
       return;
     }
     setWalkingTarget(key);
-    const route = await getWalkingDirections(userPosition, dep.location.lat, dep.location.lng);
+    const route = await getWalkingDirections(userPosition, stop.lat, stop.lng);
     setWalkingRoute(route);
   };
 
@@ -145,6 +171,11 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
           ) : (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <WifiOff className="w-3 h-3" /> No live data
+            </span>
+          )}
+          {nearbyStops.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              · 🚏 {nearbyStops.length} stops
             </span>
           )}
           {walkingRoute && (
@@ -196,6 +227,38 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
             />
           )}
 
+          {/* NaPTAN bus stop markers */}
+          {nearbyStops.map(stop => (
+            <Marker
+              key={stop.atcoCode}
+              position={[stop.lat, stop.lng]}
+              icon={createStopIcon()}
+              eventHandlers={{ click: () => handleWalkToStop(stop) }}
+            >
+              <Popup>
+                <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 150 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>
+                    🚏 {stop.name}
+                  </div>
+                  {stop.indicator && stop.indicator !== "*" && (
+                    <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
+                      {stop.indicator}
+                    </div>
+                  )}
+                  <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
+                    {stop.street !== "*" ? stop.street : ""} · {stop.locality}
+                  </div>
+                  <div style={{ fontSize: 10, color: "#999", marginBottom: 4 }}>
+                    {(stop.distanceKm * 1000).toFixed(0)}m away
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#1aa876", cursor: "pointer" }}>
+                    🚶 Tap for walking directions
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
           {/* User location marker */}
           <Marker
             position={[refLat, refLng]}
@@ -219,15 +282,13 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
             </Popup>
           </Marker>
 
+          {/* Bus markers */}
           {departures.map((dep, i) =>
             dep.location ? (
               <Marker
                 key={`${dep.vehicleRef}-${i}`}
                 position={[dep.location.lat, dep.location.lng]}
                 icon={createBusIcon(dep.lineName || dep.lineRef, dep.status)}
-                eventHandlers={{
-                  click: () => handleWalkTo(dep),
-                }}
               >
                 <Popup>
                   <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 170 }}>
@@ -244,22 +305,10 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
                       style={{
                         fontSize: 10,
                         fontWeight: 600,
-                        marginBottom: 6,
                         color: dep.status === "delayed" ? "#e8614d" : dep.status === "early" ? "#7c5cbf" : "#1aa876",
                       }}
                     >
                       {dep.status === "on-time" ? "On time" : dep.status === "delayed" ? "Delayed" : "Early"}
-                    </div>
-                    <div style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: "#1aa876",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                      cursor: "pointer",
-                    }}>
-                      🚶 Tap for walking directions
                     </div>
                   </div>
                 </Popup>
@@ -271,7 +320,7 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
 
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
-          ? `Updated at ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk`
+          ? `Updated at ${formatTime(lastUpdated)} · BODS + NaPTAN`
           : loading
           ? "Fetching live positions…"
           : "No data available"}
