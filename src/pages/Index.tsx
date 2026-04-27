@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import JourneySearch from "@/components/JourneySearch";
+import QuickActions from "@/components/QuickActions";
 import { Leaf, Zap, Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
