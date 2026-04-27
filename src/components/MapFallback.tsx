@@ -1,4 +1,4 @@
-import { MapPinned, MapOff, RefreshCw } from "lucide-react";
+import { MapPinned, MapPinOff, RefreshCw } from "lucide-react";
 import type { NaptanStop } from "@/services/naptanService";
 
 interface Props {
@@ -28,7 +28,7 @@ const MapFallback = ({ stops, isStub, savedAt, reason, onRetry }: Props) => {
     >
       <div className="px-4 py-3 border-b border-border bg-background/60 flex items-start gap-3">
         <div className="mt-0.5 text-muted-foreground">
-          <MapOff className="w-5 h-5" />
+          <MapPinOff className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-semibold text-foreground">Map temporarily unavailable</div>
@@ -65,7 +65,7 @@ const MapFallback = ({ stops, isStub, savedAt, reason, onRetry }: Props) => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-foreground truncate">
-                {stop.commonName}
+                {stop.name || stop.atcoCode}
               </div>
               <div className="text-xs text-muted-foreground truncate">
                 {stop.indicator ? `${stop.indicator} · ` : ""}

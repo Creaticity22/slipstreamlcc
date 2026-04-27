@@ -14,12 +14,12 @@ interface CachedPayload {
 // and the live providers are unavailable. Coordinates are approximate but
 // real, so the friendly fallback still feels meaningful.
 const STUB_STOPS: NaptanStop[] = [
-  { atcoCode: "stub-leeds-bus-stn", commonName: "Leeds Bus Station", lat: 53.7960, lng: -1.5400, indicator: "Stand" },
-  { atcoCode: "stub-leeds-rail-stn", commonName: "Leeds Rail Station", lat: 53.7955, lng: -1.5491, indicator: "Forecourt" },
-  { atcoCode: "stub-headingley", commonName: "Headingley", lat: 53.8200, lng: -1.5800, indicator: "Stop A" },
-  { atcoCode: "stub-hyde-park", commonName: "Hyde Park Corner", lat: 53.8120, lng: -1.5660, indicator: "Stop B" },
-  { atcoCode: "stub-univ-leeds", commonName: "University of Leeds", lat: 53.8067, lng: -1.5550, indicator: "Stop C" },
-] as unknown as NaptanStop[];
+  { atcoCode: "stub-leeds-bus-stn", name: "Leeds Bus Station", indicator: "Stand", street: "Dyer Street", locality: "Leeds", bearing: "", lat: 53.7960, lng: -1.5400, stopType: "BCT", distanceKm: 0 },
+  { atcoCode: "stub-leeds-rail-stn", name: "Leeds Rail Station", indicator: "Forecourt", street: "New Station Street", locality: "Leeds", bearing: "", lat: 53.7955, lng: -1.5491, stopType: "BCT", distanceKm: 0 },
+  { atcoCode: "stub-headingley", name: "Headingley", indicator: "Stop A", street: "Otley Road", locality: "Headingley", bearing: "", lat: 53.8200, lng: -1.5800, stopType: "BCT", distanceKm: 0 },
+  { atcoCode: "stub-hyde-park", name: "Hyde Park Corner", indicator: "Stop B", street: "Headingley Lane", locality: "Hyde Park", bearing: "", lat: 53.8120, lng: -1.5660, stopType: "BCT", distanceKm: 0 },
+  { atcoCode: "stub-univ-leeds", name: "University of Leeds", indicator: "Stop C", street: "Woodhouse Lane", locality: "Leeds", bearing: "", lat: 53.8067, lng: -1.5550, stopType: "BCT", distanceKm: 0 },
+];
 
 export function cacheStops(stops: NaptanStop[], centerLat?: number, centerLng?: number) {
   if (!stops.length) return;
