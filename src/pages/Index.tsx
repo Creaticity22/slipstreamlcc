@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import JourneySearch from "@/components/JourneySearch";
 import QuickActions from "@/components/QuickActions";
 import FrequentJourneys from "@/components/FrequentJourneys";
+import SponsoredRewardsRow from "@/components/SponsoredRewardsRow";
 import { Leaf, Zap, Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -46,6 +47,9 @@ const Index = () => {
 
         {/* Quick actions: safety, help now, glossary, start trip */}
         <QuickActions />
+
+        {/* Sponsored rewards — additive, scrolls naturally, never blocks core content */}
+        <SponsoredRewardsRow placement="home" title="Opportunities for you" limit={1} />
         {/* Impact card */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
