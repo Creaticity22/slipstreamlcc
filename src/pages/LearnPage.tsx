@@ -10,7 +10,7 @@ const LearnPage = () => {
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-4">
-          <Logo size={30} />
+          <Logo size={56} />
         </motion.div>
         <motion.div
           initial={{ opacity: 0, y: -8 }}

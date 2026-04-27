@@ -21,7 +21,7 @@ const Index = () => {
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-4"
         >
-          <Logo size={34} />
+          <Logo size={64} />
           <button
             aria-label="Notifications"
             className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-card"

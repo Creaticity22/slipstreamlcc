@@ -99,8 +99,8 @@ const TripSharePage = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-8">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-          <div className="mb-4">
-            <Logo size={32} />
+          <div className="mb-5">
+            <Logo size={56} />
           </div>
           <div className="flex items-center gap-2 text-primary mb-2">
             <Shield className="w-5 h-5" />
