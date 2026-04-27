@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, MapPin, Clock, Shield, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import Logo from "@/components/Logo";
 
 interface Share {
   id: string;
