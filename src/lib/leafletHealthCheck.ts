@@ -1,7 +1,23 @@
 import React from "react";
 import * as ReactLeaflet from "react-leaflet";
-import reactLeafletPkg from "react-leaflet/package.json";
-import reactPkg from "react/package.json";
+
+// Versions are injected at build time by Vite's define plugin.
+// Falls back to safe defaults if unavailable so the check still runs.
+declare const __REACT_VERSION__: string | undefined;
+declare const __REACT_LEAFLET_VERSION__: string | undefined;
+
+const reactLeafletPkg = {
+  version:
+    typeof __REACT_LEAFLET_VERSION__ !== "undefined"
+      ? __REACT_LEAFLET_VERSION__
+      : "unknown",
+};
+const reactPkg = {
+  version:
+    typeof __REACT_VERSION__ !== "undefined"
+      ? __REACT_VERSION__
+      : (React as unknown as { version?: string }).version ?? "unknown",
+};
 
 export interface LeafletHealth {
   ok: boolean;
