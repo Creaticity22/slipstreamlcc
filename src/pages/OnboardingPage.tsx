@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, GraduationCap, Briefcase, ArrowRight, ArrowLeft, Check, Accessibility, Shield, Sparkles } from "lucide-react";
+import { Home, GraduationCap, Briefcase, ArrowRight, ArrowLeft, Check, Accessibility, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
