@@ -358,23 +358,30 @@ async function handleNaptan(opts: {
     });
   }
 
-  // Fetch from NaPTAN API
-  const url = `${NAPTAN_URL}?atcoAreaCodes=${codes.join(",")}&dataFormat=csv`;
-  console.log("Fetching NaPTAN data:", url);
-  const response = await fetch(url);
-  if (!response.ok) {
-    const errText = await response.text();
-    console.error(`NaPTAN error [${response.status}]:`, errText.substring(0, 300));
-    throw new Error(`NaPTAN API returned ${response.status}`);
+  // Fetch from NaPTAN API (deduped across concurrent invocations)
+  let fetchPromise = naptanInFlight.get(cacheKey);
+  if (!fetchPromise) {
+    const url = `${NAPTAN_URL}?atcoAreaCodes=${codes.join(",")}&dataFormat=csv`;
+    console.log("Fetching NaPTAN data:", url);
+    fetchPromise = (async () => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errText = await response.text();
+        console.error(`NaPTAN error [${response.status}]:`, errText.substring(0, 300));
+        throw new Error(`NaPTAN API returned ${response.status}`);
+      }
+      const csvText = await response.text();
+      const parsed = parseNaptanCsv(csvText);
+      console.log(`Parsed ${parsed.length} NaPTAN stops for areas ${cacheKey}`);
+      naptanCache.set(cacheKey, { data: parsed, fetchedAt: Date.now() });
+      return parsed;
+    })().finally(() => {
+      naptanInFlight.delete(cacheKey);
+    });
+    naptanInFlight.set(cacheKey, fetchPromise);
   }
 
-  const csvText = await response.text();
-  const stops = parseNaptanCsv(csvText);
-  console.log(`Parsed ${stops.length} NaPTAN stops for areas ${cacheKey}`);
-
-  // Cache the full dataset
-  naptanCache.set(cacheKey, { data: stops, fetchedAt: Date.now() });
-
+  const stops = await fetchPromise;
   const nearby = filterByProximity(stops, lat, lng, radiusKm);
 
   return new Response(JSON.stringify({
