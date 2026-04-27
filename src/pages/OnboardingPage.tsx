@@ -103,7 +103,7 @@ const OnboardingPage = () => {
             {step === 0 && (
               <div className="text-center pt-8">
                 <div className="mb-8 flex justify-center">
-                  <Logo size={64} glow />
+                  <Logo size={120} glow />
                 </div>
                 <h1 className="text-3xl font-display font-bold text-foreground mb-3">Welcome to Slipstream</h1>
                 <p className="text-muted-foreground mb-8 leading-relaxed">
