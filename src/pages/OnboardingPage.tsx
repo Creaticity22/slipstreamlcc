@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, GraduationCap, Briefcase, ArrowRight, ArrowLeft, Check, Accessibility, Shield, Sparkles } from "lucide-react";
+import { Home, GraduationCap, Briefcase, ArrowRight, ArrowLeft, Check, Accessibility, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import Logo from "@/components/Logo";
 
 const STEPS = ["Welcome", "Places", "Travel", "Access", "Safety", "Confidence", "Done"] as const;
 
@@ -100,9 +101,9 @@ const OnboardingPage = () => {
             className="flex-1"
           >
             {step === 0 && (
-              <div className="text-center pt-12">
-                <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-primary flex items-center justify-center mb-6">
-                  <Sparkles className="w-10 h-10 text-primary-foreground" />
+              <div className="text-center pt-8">
+                <div className="mb-8 flex justify-center">
+                  <Logo size={64} glow />
                 </div>
                 <h1 className="text-3xl font-display font-bold text-foreground mb-3">Welcome to Slipstream</h1>
                 <p className="text-muted-foreground mb-8 leading-relaxed">

@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, MapPin, Clock, Shield, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import Logo from "@/components/Logo";
 
 interface Share {
   id: string;
@@ -98,9 +99,12 @@ const TripSharePage = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-8">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+          <div className="mb-4">
+            <Logo size={32} />
+          </div>
           <div className="flex items-center gap-2 text-primary mb-2">
             <Shield className="w-5 h-5" />
-            <span className="text-sm font-semibold uppercase tracking-wider">Slipstream trip share</span>
+            <span className="text-sm font-semibold uppercase tracking-wider">Trip share</span>
           </div>
           <h1 className="text-2xl font-display font-bold">
             {trip.from_label || "Start"} → {trip.to_label || "Destination"}
