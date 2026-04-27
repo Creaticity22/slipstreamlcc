@@ -2,11 +2,14 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
-import { createRequire } from "module";
+import { readFileSync } from "fs";
 
-const require = createRequire(import.meta.url);
-const reactPkg = require("react/package.json");
-const reactLeafletPkg = require("react-leaflet/package.json");
+const reactPkg = JSON.parse(
+  readFileSync(path.resolve(__dirname, "node_modules/react/package.json"), "utf-8")
+);
+const reactLeafletPkg = JSON.parse(
+  readFileSync(path.resolve(__dirname, "node_modules/react-leaflet/package.json"), "utf-8")
+);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
