@@ -29,7 +29,7 @@ const ProfilePage = () => {
       <div className="min-h-screen bg-background pb-24">
         <div className="max-w-lg mx-auto px-4 pt-5">
           <BrandHeader
-            title="Join Slipstream 🚀"
+            title="Join Slipstream "
             subtitle="Sign in to save your journeys, earn points, and more!"
           />
 
