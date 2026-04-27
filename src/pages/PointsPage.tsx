@@ -7,7 +7,7 @@ const PointsPage = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-5">
         <BrandHeader
-          title="Your points 🏆"
+          title="Your points "
           subtitle="Keep riding green to level up!"
         />
 
