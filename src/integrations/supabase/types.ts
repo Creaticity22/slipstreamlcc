@@ -38,6 +38,41 @@ export type Database = {
         }
         Relationships: []
       }
+      check_ins: {
+        Row: {
+          created_at: string
+          id: string
+          message: string | null
+          trip_id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          trip_id: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string | null
+          trip_id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "check_ins_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       favourite_routes: {
         Row: {
           created_at: string
@@ -65,6 +100,63 @@ export type Database = {
         }
         Relationships: []
       }
+      glossary_terms: {
+        Row: {
+          category: string | null
+          created_at: string
+          definition: string
+          id: string
+          term: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          definition: string
+          id?: string
+          term: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          definition?: string
+          id?: string
+          term?: string
+        }
+        Relationships: []
+      }
+      places: {
+        Row: {
+          address_text: string
+          created_at: string
+          id: string
+          label: string
+          lat: number | null
+          lng: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_text: string
+          created_at?: string
+          id?: string
+          label: string
+          lat?: number | null
+          lng?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_text?: string
+          created_at?: string
+          id?: string
+          label?: string
+          lat?: number | null
+          lng?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       points_log: {
         Row: {
           created_at: string
@@ -85,6 +177,51 @@ export type Database = {
           id?: string
           points?: number
           reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      preferences: {
+        Row: {
+          avoid_hills: boolean
+          confidence_level: number
+          created_at: string
+          id: string
+          late_night_default: boolean
+          low_data_mode: boolean
+          low_walking: boolean
+          onboarded: boolean
+          route_priority: string
+          step_free: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avoid_hills?: boolean
+          confidence_level?: number
+          created_at?: string
+          id?: string
+          late_night_default?: boolean
+          low_data_mode?: boolean
+          low_walking?: boolean
+          onboarded?: boolean
+          route_priority?: string
+          step_free?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avoid_hills?: boolean
+          confidence_level?: number
+          created_at?: string
+          id?: string
+          late_night_default?: boolean
+          low_data_mode?: boolean
+          low_walking?: boolean
+          onboarded?: boolean
+          route_priority?: string
+          step_free?: boolean
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -124,6 +261,113 @@ export type Database = {
           total_co2_saved?: number
           total_points?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      safety_contacts: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          phone_or_email: string
+          preferred_template: string | null
+          relationship: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          phone_or_email: string
+          preferred_template?: string | null
+          relationship?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          phone_or_email?: string
+          preferred_template?: string | null
+          relationship?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      trip_shares: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          share_token: string
+          trip_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          share_token?: string
+          trip_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          share_token?: string
+          trip_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trip_shares_trip_id_fkey"
+            columns: ["trip_id"]
+            isOneToOne: false
+            referencedRelation: "trips"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trips: {
+        Row: {
+          created_at: string
+          current_step_number: number
+          ended_at: string | null
+          from_label: string | null
+          id: string
+          last_check_in_at: string | null
+          plan_json: Json | null
+          started_at: string
+          status: string
+          to_label: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_step_number?: number
+          ended_at?: string | null
+          from_label?: string | null
+          id?: string
+          last_check_in_at?: string | null
+          plan_json?: Json | null
+          started_at?: string
+          status?: string
+          to_label?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_step_number?: number
+          ended_at?: string | null
+          from_label?: string | null
+          id?: string
+          last_check_in_at?: string | null
+          plan_json?: Json | null
+          started_at?: string
+          status?: string
+          to_label?: string | null
           user_id?: string
         }
         Relationships: []
