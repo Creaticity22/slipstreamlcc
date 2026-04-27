@@ -45,7 +45,7 @@ const TripPage = () => {
   const load = async () => {
     if (!tripId) return;
     const { data } = await supabase.from("trips").select("*").eq("id", tripId).maybeSingle();
-    if (data) setTrip(data as Trip);
+    if (data) setTrip(data as unknown as Trip);
     const { data: ci } = await supabase
       .from("check_ins")
       .select("*")
