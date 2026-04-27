@@ -19,12 +19,12 @@ const Index = () => {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-4"
+          className="flex items-end justify-between mb-4 gap-3"
         >
-          <Logo size={64} />
+          <Logo size={120} className="-ml-2" />
           <button
             aria-label="Notifications"
-            className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-card"
+            className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-card shrink-0"
           >
             <Bell className="w-5 h-5 text-foreground" />
           </button>
