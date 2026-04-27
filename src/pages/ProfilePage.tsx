@@ -3,6 +3,7 @@ import { LogIn, LogOut, User as UserIcon, Trophy, Heart, MessageCircle } from "l
 import { useAuth } from "@/hooks/useAuth";
 import { lovable } from "@/integrations/lovable/index";
 import { useNavigate } from "react-router-dom";
+import BrandHeader from "@/components/BrandHeader";
 
 const ProfilePage = () => {
   const { user, loading, signOut } = useAuth();
@@ -26,15 +27,11 @@ const ProfilePage = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-background pb-24">
-        <div className="max-w-lg mx-auto px-4 pt-6">
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6"
-          >
-            <h1 className="text-2xl font-display font-bold text-foreground">Join Slipstream 🚀</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Sign in to save your journeys, earn points, and more!</p>
-          </motion.div>
+        <div className="max-w-lg mx-auto px-4 pt-5">
+          <BrandHeader
+            title="Join Slipstream 🚀"
+            subtitle="Sign in to save your journeys, earn points, and more!"
+          />
 
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -80,14 +77,8 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="max-w-lg mx-auto px-4 pt-6">
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <h1 className="text-2xl font-display font-bold text-foreground">Your profile ✨</h1>
-        </motion.div>
+      <div className="max-w-lg mx-auto px-4 pt-5">
+        <BrandHeader title="Your profile ✨" />
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}

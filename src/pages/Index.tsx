@@ -5,7 +5,7 @@ import FrequentJourneys from "@/components/FrequentJourneys";
 import SponsoredRewardsRow from "@/components/SponsoredRewardsRow";
 import { Leaf, Zap, Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import Logo from "@/components/Logo";
+import BrandHeader from "@/components/BrandHeader";
 
 const Index = () => {
   const { user } = useAuth();
@@ -15,35 +15,18 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-5">
-        {/* Brand bar */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-end justify-between mb-4 gap-3"
-        >
-          <Logo size={120} className="-ml-2" />
-          <button
-            aria-label="Notifications"
-            className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-card shrink-0"
-          >
-            <Bell className="w-5 h-5 text-foreground" />
-          </button>
-        </motion.div>
-
-        {/* Greeting */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05 }}
-          className="mb-6"
-        >
-          <h1 className="text-2xl font-display font-bold text-foreground">
-            {firstName ? `Hey ${firstName}! ` : "Welcome aboard"}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Where are you heading today?
-          </p>
-        </motion.div>
+        <BrandHeader
+          title={firstName ? `Hey ${firstName}! ` : "Welcome aboard"}
+          subtitle="Where are you heading today?"
+          action={
+            <button
+              aria-label="Notifications"
+              className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center shadow-card"
+            >
+              <Bell className="w-5 h-5 text-foreground" />
+            </button>
+          }
+        />
 
         {/* Search */}
         <motion.div
