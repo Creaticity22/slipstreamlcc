@@ -7,6 +7,17 @@ import { fetchNearbyStops, NaptanStop, formatStopLabel } from "@/services/naptan
 import { Bus, RefreshCw, WifiOff } from "lucide-react";
 import { GeoPosition } from "@/hooks/useGeolocation";
 import { getWalkingDirections, WalkingRoute, formatDistance, formatWalkTime } from "@/services/directionsService";
+import { checkLeafletHealth } from "@/lib/leafletHealthCheck";
+
+const LEAFLET_HEALTH = checkLeafletHealth();
+if (!LEAFLET_HEALTH.ok) {
+  // Loud signal in dev console so version drift is obvious before the map mounts
+  // eslint-disable-next-line no-console
+  console.error("[LiveMap] Leaflet health check failed:", LEAFLET_HEALTH);
+} else if (LEAFLET_HEALTH.warnings.length) {
+  // eslint-disable-next-line no-console
+  console.warn("[LiveMap] Leaflet health check warnings:", LEAFLET_HEALTH);
+}
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -160,6 +171,19 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
 
   return (
     <div className="space-y-3">
+      {!LEAFLET_HEALTH.ok && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          <div className="font-semibold mb-1">Map unavailable — version mismatch</div>
+          <div>
+            react-leaflet v{LEAFLET_HEALTH.reactLeafletVersion} with React v{LEAFLET_HEALTH.reactVersion}.
+          </div>
+          <ul className="list-disc pl-4 mt-1">
+            {LEAFLET_HEALTH.errors.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isLive ? (
