@@ -40,6 +40,8 @@ const Index = () => {
           <JourneySearch />
         </motion.div>
 
+        {/* Quick actions: safety, help now, glossary, start trip */}
+        <QuickActions />
         {/* Impact card */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
