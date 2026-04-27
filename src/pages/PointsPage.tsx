@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import PointsSummary from "@/components/PointsSummary";
+import SponsoredRewardsRow from "@/components/SponsoredRewardsRow";
 
 const PointsPage = () => {
   return (
@@ -15,6 +16,9 @@ const PointsPage = () => {
         </motion.div>
 
         <PointsSummary />
+
+        {/* Sponsored rewards marketplace — partner-powered rewards & badges */}
+        <SponsoredRewardsRow placement="rewards" title="Rewards marketplace" />
       </div>
     </div>
   );
