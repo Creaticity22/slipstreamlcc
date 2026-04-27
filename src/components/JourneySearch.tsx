@@ -3,15 +3,19 @@ import { MapPin, ArrowRight, Navigation, Locate, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useGeolocation } from "@/hooks/useGeolocation";
+import { useFrequentJourneys } from "@/hooks/useFrequentJourneys";
 
 const JourneySearch = () => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const navigate = useNavigate();
   const geo = useGeolocation();
+  const { logJourney } = useFrequentJourneys();
 
   const handleSearch = () => {
     if (from && to) {
+      // Fire-and-forget: track this journey for the home-screen frequent list
+      logJourney(from, to);
       navigate("/routes", {
         state: {
           from,

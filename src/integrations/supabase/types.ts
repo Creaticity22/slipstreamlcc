@@ -79,7 +79,9 @@ export type Database = {
           from_location: string
           id: string
           label: string | null
+          last_used_at: string
           to_location: string
+          usage_count: number
           user_id: string
         }
         Insert: {
@@ -87,7 +89,9 @@ export type Database = {
           from_location: string
           id?: string
           label?: string | null
+          last_used_at?: string
           to_location: string
+          usage_count?: number
           user_id: string
         }
         Update: {
@@ -95,7 +99,9 @@ export type Database = {
           from_location?: string
           id?: string
           label?: string | null
+          last_used_at?: string
           to_location?: string
+          usage_count?: number
           user_id?: string
         }
         Relationships: []
@@ -377,7 +383,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      log_journey_usage: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          created_at: string
+          from_location: string
+          id: string
+          label: string | null
+          last_used_at: string
+          to_location: string
+          usage_count: number
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "favourite_routes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never
