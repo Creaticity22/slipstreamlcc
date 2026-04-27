@@ -8,6 +8,9 @@ import { Bus, RefreshCw, WifiOff } from "lucide-react";
 import { GeoPosition } from "@/hooks/useGeolocation";
 import { getWalkingDirections, WalkingRoute, formatDistance, formatWalkTime } from "@/services/directionsService";
 import { checkLeafletHealth } from "@/lib/leafletHealthCheck";
+import { cacheStops, getCachedStops } from "@/lib/stopsCache";
+import { MapErrorBoundary } from "@/components/MapErrorBoundary";
+import MapFallback from "@/components/MapFallback";
 
 const LEAFLET_HEALTH = checkLeafletHealth();
 if (!LEAFLET_HEALTH.ok) {
@@ -119,11 +122,16 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
   const refLat = userPosition?.lat ?? 53.825;
   const refLng = userPosition?.lng ?? -1.576;
 
-  // Fetch nearby NaPTAN stops
+  // Fetch nearby NaPTAN stops (and persist for offline fallback)
   useEffect(() => {
     if (!userPosition) return;
     fetchNearbyStops(userPosition.lat, userPosition.lng, 1).then(res => {
-      if (res.stops.length > 0) setNearbyStops(res.stops);
+      if (res.stops.length > 0) {
+        setNearbyStops(res.stops);
+        cacheStops(res.stops, userPosition.lat, userPosition.lng);
+      }
+    }).catch(() => {
+      // network failed — fallback will pick up cached/stub stops
     });
   }, [userPosition?.lat, userPosition?.lng]);
 
