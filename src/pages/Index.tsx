@@ -20,7 +20,7 @@ const Index = () => {
         >
           <div>
             <h1 className="text-2xl font-display font-bold text-foreground">
-              {firstName ? `Hey ${firstName}! 👋` : "Welcome to Slipstream"}
+              {firstName ? `Hey ${firstName}! ` : "Welcome to Slipstream"}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               Where are you heading today?
