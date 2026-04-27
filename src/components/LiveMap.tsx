@@ -171,6 +171,19 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
 
   return (
     <div className="space-y-3">
+      {!LEAFLET_HEALTH.ok && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          <div className="font-semibold mb-1">Map unavailable — version mismatch</div>
+          <div>
+            react-leaflet v{LEAFLET_HEALTH.reactLeafletVersion} with React v{LEAFLET_HEALTH.reactVersion}.
+          </div>
+          <ul className="list-disc pl-4 mt-1">
+            {LEAFLET_HEALTH.errors.map((e, i) => (
+              <li key={i}>{e}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isLive ? (
