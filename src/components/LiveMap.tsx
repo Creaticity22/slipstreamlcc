@@ -8,6 +8,9 @@ import { Bus, RefreshCw, WifiOff } from "lucide-react";
 import { GeoPosition } from "@/hooks/useGeolocation";
 import { getWalkingDirections, WalkingRoute, formatDistance, formatWalkTime } from "@/services/directionsService";
 import { checkLeafletHealth } from "@/lib/leafletHealthCheck";
+import { cacheStops, getCachedStops } from "@/lib/stopsCache";
+import { MapErrorBoundary } from "@/components/MapErrorBoundary";
+import MapFallback from "@/components/MapFallback";
 
 const LEAFLET_HEALTH = checkLeafletHealth();
 if (!LEAFLET_HEALTH.ok) {
@@ -119,11 +122,16 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
   const refLat = userPosition?.lat ?? 53.825;
   const refLng = userPosition?.lng ?? -1.576;
 
-  // Fetch nearby NaPTAN stops
+  // Fetch nearby NaPTAN stops (and persist for offline fallback)
   useEffect(() => {
     if (!userPosition) return;
     fetchNearbyStops(userPosition.lat, userPosition.lng, 1).then(res => {
-      if (res.stops.length > 0) setNearbyStops(res.stops);
+      if (res.stops.length > 0) {
+        setNearbyStops(res.stops);
+        cacheStops(res.stops, userPosition.lat, userPosition.lng);
+      }
+    }).catch(() => {
+      // network failed — fallback will pick up cached/stub stops
     });
   }, [userPosition?.lat, userPosition?.lng]);
 
@@ -171,19 +179,6 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
 
   return (
     <div className="space-y-3">
-      {!LEAFLET_HEALTH.ok && (
-        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-          <div className="font-semibold mb-1">Map unavailable — version mismatch</div>
-          <div>
-            react-leaflet v{LEAFLET_HEALTH.reactLeafletVersion} with React v{LEAFLET_HEALTH.reactVersion}.
-          </div>
-          <ul className="list-disc pl-4 mt-1">
-            {LEAFLET_HEALTH.errors.map((e, i) => (
-              <li key={i}>{e}</li>
-            ))}
-          </ul>
-        </div>
-      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {isLive ? (
@@ -223,124 +218,121 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
         </div>
       </div>
 
-      <div className="rounded-2xl overflow-hidden border border-border shadow-card" style={{ height: "400px" }}>
-        <MapContainer
-          center={[refLat, refLng]}
-          zoom={13}
-          scrollWheelZoom={true}
-          style={{ height: "100%", width: "100%" }}
-          zoomControl={false}
+      {LEAFLET_HEALTH.ok ? (
+        <MapErrorBoundary
+          fallback={(err) => {
+            const cached = getCachedStops();
+            return (
+              <MapFallback
+                stops={cached.stops}
+                isStub={cached.isStub}
+                savedAt={cached.savedAt}
+                reason={`Map provider error: ${err.message}`}
+                onRetry={() => window.location.reload()}
+              />
+            );
+          }}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-          <FitBounds departures={departures} userLat={refLat} userLng={refLng} walkingRoute={walkingRoute} />
-
-          {/* Walking route polyline */}
-          {walkingRoute && walkingRoute.geometry.length > 0 && (
-            <Polyline
-              positions={walkingRoute.geometry}
-              pathOptions={{
-                color: "#1aa876",
-                weight: 4,
-                opacity: 0.8,
-                dashArray: "8, 12",
-                lineCap: "round",
-              }}
-            />
-          )}
-
-          {/* NaPTAN bus stop markers */}
-          {nearbyStops.map(stop => (
-            <Marker
-              key={stop.atcoCode}
-              position={[stop.lat, stop.lng]}
-              icon={createStopIcon()}
-              eventHandlers={{ click: () => handleWalkToStop(stop) }}
+          <div className="rounded-2xl overflow-hidden border border-border shadow-card" style={{ height: "400px" }}>
+            <MapContainer
+              center={[refLat, refLng]}
+              zoom={13}
+              scrollWheelZoom={true}
+              style={{ height: "100%", width: "100%" }}
+              zoomControl={false}
             >
-              <Popup>
-                <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 150 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>
-                    🚏 {stop.name}
-                  </div>
-                  {stop.indicator && stop.indicator !== "*" && (
-                    <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
-                      {stop.indicator}
-                    </div>
-                  )}
-                  <div style={{ fontSize: 11, color: "#666", marginBottom: 2 }}>
-                    {stop.street !== "*" ? stop.street : ""} · {stop.locality}
-                  </div>
-                  <div style={{ fontSize: 10, color: "#999", marginBottom: 4 }}>
-                    {(stop.distanceKm * 1000).toFixed(0)}m away
-                  </div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "#1aa876", cursor: "pointer" }}>
-                    🚶 Tap for walking directions
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+{/* keep existing code (TileLayer, FitBounds, walking polyline, NaPTAN markers, bus markers, user circle) */}
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <FitBounds departures={departures} userLat={refLat} userLng={refLng} walkingRoute={walkingRoute} />
 
-          {/* User location marker */}
-          <Marker
-            position={[refLat, refLng]}
-            icon={L.divIcon({
-              className: "ref-marker",
-              html: `<div style="
-                width: 14px; height: 14px;
-                background: hsl(162 72% 40%);
-                border: 3px solid white;
-                border-radius: 50%;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-              "></div>`,
-              iconSize: [14, 14],
-              iconAnchor: [7, 7],
-            })}
-          >
-            <Popup>
-              <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 600, fontSize: 13 }}>
-                📍 Your location
-              </div>
-            </Popup>
-          </Marker>
+              {/* Walking route polyline */}
+              {walkingRoute && walkingRoute.geometry.length > 0 && (
+                <Polyline
+                  positions={walkingRoute.geometry}
+                  pathOptions={{
+                    color: "#1aa876",
+                    weight: 4,
+                    opacity: 0.8,
+                    dashArray: "8, 12",
+                    lineCap: "round",
+                  }}
+                />
+              )}
 
-          {/* Bus markers */}
-          {departures.map((dep, i) =>
-            dep.location ? (
-              <Marker
-                key={`${dep.vehicleRef}-${i}`}
-                position={[dep.location.lat, dep.location.lng]}
-                icon={createBusIcon(dep.lineName || dep.lineRef, dep.status)}
-              >
-                <Popup>
-                  <div style={{ fontFamily: "'Space Grotesk', sans-serif", minWidth: 170 }}>
-                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                      🚌 {dep.lineName || dep.lineRef}
+              {/* NaPTAN bus stop markers */}
+              {nearbyStops.map(stop => (
+                <Marker
+                  key={stop.atcoCode}
+                  position={[stop.lat, stop.lng]}
+                  icon={createStopIcon()}
+                  eventHandlers={{ click: () => handleWalkToStop(stop) }}
+                >
+                  <Popup>
+                    <div className="text-xs">
+                      <div className="font-semibold">{formatStopLabel(stop)}</div>
+                      <button
+                        onClick={() => handleWalkToStop(stop)}
+                        className="mt-1 text-primary underline"
+                      >
+                        {walkingTarget === stop.atcoCode ? "Hide route" : "Walk here"}
+                      </button>
                     </div>
-                    <div style={{ fontSize: 12, color: "#333", marginBottom: 2 }}>
-                      → {formatDestination(dep.destination || "Unknown")}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#666", marginBottom: 4 }}>
-                      {haversineKm(refLat, refLng, dep.location.lat, dep.location.lng).toFixed(1)} km away
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        color: dep.status === "delayed" ? "#e8614d" : dep.status === "early" ? "#7c5cbf" : "#1aa876",
-                      }}
-                    >
-                      {dep.status === "on-time" ? "On time" : dep.status === "delayed" ? "Delayed" : "Early"}
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            ) : null
-          )}
-        </MapContainer>
-      </div>
+                  </Popup>
+                </Marker>
+              ))}
+
+              {/* Bus markers */}
+              {departures.map((dep, idx) =>
+                dep.location ? (
+                  <Marker
+                    key={dep.vehicleRef || `${dep.lineRef}-${idx}`}
+                    position={[dep.location.lat, dep.location.lng]}
+                    icon={createBusIcon(dep.lineName || dep.lineRef, dep.status)}
+                  >
+                    <Popup>
+                      <div className="text-xs space-y-1">
+                        <div className="font-semibold flex items-center gap-1">
+                          <Bus className="w-3 h-3" /> Line {dep.lineName || dep.lineRef}
+                        </div>
+                        <div>{dep.destination}</div>
+                        <div className="text-muted-foreground">
+                          ETA: {dep.minutesAway ?? "—"}m
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ) : null
+              )}
+
+              {/* User position */}
+              {userPosition && (
+                <CircleMarker
+                  center={[userPosition.lat, userPosition.lng]}
+                  radius={8}
+                  pathOptions={{ color: "#2D7DD2", fillColor: "#2D7DD2", fillOpacity: 0.6, weight: 2 }}
+                >
+                  <Popup>You are here</Popup>
+                </CircleMarker>
+              )}
+            </MapContainer>
+          </div>
+        </MapErrorBoundary>
+      ) : (
+        (() => {
+          const cached = getCachedStops();
+          return (
+            <MapFallback
+              stops={cached.stops}
+              isStub={cached.isStub}
+              savedAt={cached.savedAt}
+              reason="The map library is unavailable in this environment."
+            />
+          );
+        })()
+      )}
 
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
