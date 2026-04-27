@@ -19,7 +19,7 @@ const LivePage = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-5">
         <BrandHeader
-          title="Live updates ⏱️"
+          title="Live updates "
           subtitle={
             <span className="flex items-center gap-1.5">
               {geo.loading ? (
