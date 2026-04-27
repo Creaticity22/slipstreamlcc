@@ -298,21 +298,21 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
               ))}
 
               {/* Bus markers */}
-              {departures.map((dep) =>
+              {departures.map((dep, idx) =>
                 dep.location ? (
                   <Marker
-                    key={dep.id}
+                    key={dep.vehicleRef || `${dep.lineRef}-${idx}`}
                     position={[dep.location.lat, dep.location.lng]}
-                    icon={createBusIcon(dep.line, dep.status)}
+                    icon={createBusIcon(dep.lineName || dep.lineRef, dep.status)}
                   >
                     <Popup>
                       <div className="text-xs space-y-1">
                         <div className="font-semibold flex items-center gap-1">
-                          <Bus className="w-3 h-3" /> Line {dep.line}
+                          <Bus className="w-3 h-3" /> Line {dep.lineName || dep.lineRef}
                         </div>
                         <div>{dep.destination}</div>
                         <div className="text-muted-foreground">
-                          ETA: {dep.minutesUntil}m
+                          ETA: {dep.minutesAway ?? "—"}m
                         </div>
                       </div>
                     </Popup>
