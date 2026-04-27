@@ -37,10 +37,15 @@ serve(async (req) => {
   } catch (error) {
     console.error("BODS proxy error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    // Always return 200 with a fallback signal so the client never sees a 5xx
     return new Response(JSON.stringify({
       departures: [],
+      stops: [],
+      datasets: [],
+      count: 0,
       updatedAt: new Date().toISOString(),
       source: "error",
+      fallback: true,
       error: errorMessage,
     }), {
       status: 200,
@@ -48,6 +53,9 @@ serve(async (req) => {
     });
   }
 });
+
+// Dedupe concurrent NaPTAN fetches per cacheKey to avoid OOM from parallel large CSV downloads
+const naptanInFlight: Map<string, Promise<any[]>> = new Map();
 
 async function handleDatafeed(
   apiKey: string,
