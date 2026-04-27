@@ -7,6 +7,17 @@ import { fetchNearbyStops, NaptanStop, formatStopLabel } from "@/services/naptan
 import { Bus, RefreshCw, WifiOff } from "lucide-react";
 import { GeoPosition } from "@/hooks/useGeolocation";
 import { getWalkingDirections, WalkingRoute, formatDistance, formatWalkTime } from "@/services/directionsService";
+import { checkLeafletHealth } from "@/lib/leafletHealthCheck";
+
+const LEAFLET_HEALTH = checkLeafletHealth();
+if (!LEAFLET_HEALTH.ok) {
+  // Loud signal in dev console so version drift is obvious before the map mounts
+  // eslint-disable-next-line no-console
+  console.error("[LiveMap] Leaflet health check failed:", LEAFLET_HEALTH);
+} else if (LEAFLET_HEALTH.warnings.length) {
+  // eslint-disable-next-line no-console
+  console.warn("[LiveMap] Leaflet health check warnings:", LEAFLET_HEALTH);
+}
 
 const POLL_INTERVAL_MS = 30_000;
 
