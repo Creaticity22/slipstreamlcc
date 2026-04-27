@@ -16,7 +16,7 @@ const Index = () => {
     <div className="min-h-screen bg-background pb-24">
       <div className="max-w-lg mx-auto px-4 pt-5">
         <BrandHeader
-          title={firstName ? `Hey ${firstName}! ` : "Welcome aboard"}
+          title={firstName ? `Hey ${firstName}! ` : "Welcome to Slipstream"}
           subtitle="Where are you heading today?"
           action={
             <button
