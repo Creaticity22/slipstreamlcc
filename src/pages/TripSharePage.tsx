@@ -46,7 +46,7 @@ const TripSharePage = () => {
     if (!token) return;
     const load = async () => {
       const { data } = await supabase.rpc("get_shared_trip", { p_token: token });
-      const payload = data as { share: Share; trip: Trip; check_ins: CheckIn[] } | null;
+      const payload = data as unknown as { share: Share; trip: Trip; check_ins: CheckIn[] } | null;
       if (!payload) {
         setShare(null);
         setTrip(null);
