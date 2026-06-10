@@ -45,28 +45,18 @@ const TripSharePage = () => {
   useEffect(() => {
     if (!token) return;
     const load = async () => {
-      const { data: shareRow } = await supabase
-        .from("trip_shares")
-        .select("*")
-        .eq("share_token", token)
-        .maybeSingle();
-      if (!shareRow) {
+      const { data } = await supabase.rpc("get_shared_trip", { p_token: token });
+      const payload = data as unknown as { share: Share; trip: Trip; check_ins: CheckIn[] } | null;
+      if (!payload) {
+        setShare(null);
+        setTrip(null);
+        setCheckIns([]);
         setLoading(false);
         return;
       }
-      setShare(shareRow as Share);
-      const { data: tripRow } = await supabase
-        .from("trips")
-        .select("*")
-        .eq("id", shareRow.trip_id)
-        .maybeSingle();
-      setTrip(tripRow as unknown as Trip);
-      const { data: ci } = await supabase
-        .from("check_ins")
-        .select("*")
-        .eq("trip_id", shareRow.trip_id)
-        .order("created_at", { ascending: false });
-      setCheckIns((ci as CheckIn[]) ?? []);
+      setShare(payload.share);
+      setTrip(payload.trip);
+      setCheckIns(payload.check_ins ?? []);
       setLoading(false);
     };
     load();
