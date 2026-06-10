@@ -383,6 +383,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_shared_trip: { Args: { p_token: string }; Returns: Json }
       log_journey_usage: {
         Args: { p_from: string; p_to: string }
         Returns: {
