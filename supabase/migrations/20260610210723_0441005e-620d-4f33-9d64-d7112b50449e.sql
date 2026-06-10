@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.prevent_profile_gamification_updates() FROM PUBLIC, anon, authenticated;
