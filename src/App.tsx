@@ -22,6 +22,7 @@ import TripPage from "./pages/TripPage";
 import TripSharePage from "./pages/TripSharePage";
 import HistoryPage from "./pages/HistoryPage";
 import LeaderboardPage from "./pages/LeaderboardPage";
+import TrustPage from "./pages/TrustPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,8 @@ const App = () => (
             <Route path="/trip/share/:token" element={<TripSharePage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/trust" element={<TrustPage />} />
+            <Route path="/privacy" element={<TrustPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Chrome />

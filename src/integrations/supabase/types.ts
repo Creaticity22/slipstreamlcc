@@ -474,7 +474,7 @@ export type Database = {
     }
     Functions: {
       complete_weekly_challenge: {
-        Args: { p_challenge_id: string; p_points: number }
+        Args: { p_challenge_id: string; p_points?: number }
         Returns: {
           challenge_key: string
           completed_at: string | null
