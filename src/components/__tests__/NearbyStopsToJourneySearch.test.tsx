@@ -4,6 +4,16 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 // --- Mocks ---
+vi.mock("framer-motion", async () => {
+  const React = await import("react");
+  const passthrough = (tag: string) =>
+    React.forwardRef((props: any, ref: any) => React.createElement(tag, { ...props, ref }));
+  return {
+    motion: new Proxy({}, { get: (_t, key: string) => passthrough(key) }),
+    AnimatePresence: ({ children }: any) => children,
+  };
+});
+
 const stablePosition = { lat: 53.8, lng: -1.55 };
 const stableGeo = {
   position: stablePosition,
