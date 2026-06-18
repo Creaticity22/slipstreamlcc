@@ -58,6 +58,16 @@ const LivePage = () => {
           }
         />
 
+        {import.meta.env.DEV && (
+          <button
+            onClick={checkBodsHealth}
+            className="mb-3 flex items-center gap-2 rounded-md bg-coral/10 px-3 py-2 text-sm font-medium text-coral hover:bg-coral/20 transition-colors"
+          >
+            <Stethoscope className="w-4 h-4" />
+            Check BODS health
+          </button>
+        )}
+
         <Tabs defaultValue="list" className="w-full">
           <TabsList className="w-full mb-4">
             <TabsTrigger value="list" className="flex-1 gap-1.5">
