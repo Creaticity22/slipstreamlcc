@@ -46,22 +46,29 @@ export interface TimetableResponse {
   error?: string;
 }
 
-// England-wide bounding box as default for national coverage
-const ENGLAND_BBOX = {
-  minLat: 49.9,
-  maxLat: 55.8,
-  minLon: -5.7,
-  maxLon: 1.8,
-};
+export interface Bbox {
+  minLat: number;
+  maxLat: number;
+  minLon: number;
+  maxLon: number;
+}
 
 export async function fetchLiveDepartures(
-  lines?: string[],
-  bbox?: { minLat: number; maxLat: number; minLon: number; maxLon: number }
+  lines: string[] | undefined,
+  bbox: Bbox,
 ): Promise<BodsResponse> {
+  if (!bbox) {
+    return {
+      departures: [],
+      updatedAt: new Date().toISOString(),
+      source: "error",
+      error: "Bounding box required",
+    };
+  }
   try {
     const body: Record<string, unknown> = {
       endpoint: "datafeed",
-      boundingBox: bbox || ENGLAND_BBOX,
+      boundingBox: bbox,
       stopCodes: [],
     };
     if (lines && lines.length > 0) body.lineNames = lines;
@@ -93,17 +100,26 @@ export async function fetchLiveDepartures(
 }
 
 export async function fetchTimetableDatasets(
-  searchTerm?: string,
-  noc?: string[],
-  bbox?: { minLat: number; maxLat: number; minLon: number; maxLon: number }
+  searchTerm: string | undefined,
+  noc: string[] | undefined,
+  bbox: Bbox,
 ): Promise<TimetableResponse> {
+  if (!bbox) {
+    return {
+      datasets: [],
+      count: 0,
+      updatedAt: new Date().toISOString(),
+      source: "error",
+      error: "Bounding box required",
+    };
+  }
   try {
     const body: Record<string, unknown> = {
       endpoint: "timetable",
       search: searchTerm,
       noc,
       limit: 20,
-      boundingBox: bbox || ENGLAND_BBOX,
+      boundingBox: bbox,
     };
 
     const { data, error } = await supabase.functions.invoke("bods-proxy", {

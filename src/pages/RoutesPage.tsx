@@ -134,9 +134,10 @@ const RoutesPage = () => {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!bbox) return;
     setLoading(true);
     try {
-      const result = await fetchLiveDepartures(undefined, bbox ?? undefined);
+      const result = await fetchLiveDepartures(undefined, bbox);
       if (result.source !== "error" && result.departures.length > 0) {
         const built = buildRoutesFromLive(result.departures, refLat, refLng);
         setRoutes(built);

@@ -136,9 +136,10 @@ const LiveMap = ({ userPosition, bbox }: Props) => {
   }, [userPosition?.lat, userPosition?.lng]);
 
   const refresh = useCallback(async () => {
+    if (!bbox) return;
     setLoading(true);
     try {
-      const result = await fetchLiveDepartures(undefined, bbox ?? undefined);
+      const result = await fetchLiveDepartures(undefined, bbox);
       if (result.source !== "error" && result.departures.length > 0) {
         setDepartures(result.departures.filter((d) => d.location));
         setIsLive(true);

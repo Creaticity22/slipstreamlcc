@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, CheckCircle2, MapPin, AlertTriangle, Share2, Copy, Square } from "lucide-react";
@@ -42,7 +42,7 @@ const TripPage = () => {
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!tripId) return;
     const { data } = await supabase.from("trips").select("*").eq("id", tripId).maybeSingle();
     if (data) setTrip(data as unknown as Trip);
@@ -52,11 +52,11 @@ const TripPage = () => {
       .eq("trip_id", tripId)
       .order("created_at", { ascending: false });
     setCheckIns((ci as CheckIn[]) ?? []);
-  };
+  }, [tripId]);
 
   useEffect(() => {
     load();
-  }, [tripId]);
+  }, [load]);
 
   const checkIn = async (type: "all_good" | "im_here" | "need_help", message?: string) => {
     if (!trip || !user) return;

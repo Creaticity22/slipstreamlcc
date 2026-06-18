@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 
@@ -11,7 +10,7 @@ const BODS_DATAFEED_URL = "https://data.bus-data.dft.gov.uk/api/v1/datafeed/";
 const BODS_TIMETABLE_URL = "https://data.bus-data.dft.gov.uk/api/v1/dataset/";
 const NAPTAN_URL = "https://naptan.api.dft.gov.uk/v1/access-nodes";
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -31,8 +30,8 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
     const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await authClient.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims?.sub) {
+    const { data: userData, error: userError } = await authClient.auth.getUser(token);
+    if (userError || !userData?.user?.id) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -77,6 +76,8 @@ serve(async (req) => {
     });
   }
 });
+
+
 
 // Dedupe concurrent NaPTAN fetches per cacheKey to avoid OOM from parallel large CSV downloads
 const naptanInFlight: Map<string, Promise<any[]>> = new Map();
