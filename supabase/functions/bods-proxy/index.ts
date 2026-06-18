@@ -1,18 +1,57 @@
-// BODS proxy — public transport data, no auth required
+// BODS proxy — requires authenticated user
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+const ALLOWED_ORIGINS = [
+  "https://slipstreamlcc.lovable.app",
+  "https://slipstreamgo.live",
+  "https://www.slipstreamgo.live",
+  "http://localhost:5173",
+  "http://localhost:8080",
+];
+
+const ALLOWED_HEADERS =
+  "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version";
+
+function buildCorsHeaders(req: Request) {
+  const origin = req.headers.get("Origin") ?? "";
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Headers": ALLOWED_HEADERS,
+    "Vary": "Origin",
+  };
+}
 
 const BODS_DATAFEED_URL = "https://data.bus-data.dft.gov.uk/api/v1/datafeed/";
 const BODS_TIMETABLE_URL = "https://data.bus-data.dft.gov.uk/api/v1/dataset/";
 const NAPTAN_URL = "https://naptan.api.dft.gov.uk/v1/access-nodes";
 
 Deno.serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const authClient = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } }
+  );
+  const token = authHeader.replace("Bearer ", "");
+  const { data: userData, error: userError } = await authClient.auth.getUser(token);
+  if (userError || !userData?.user?.id) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -25,15 +64,15 @@ Deno.serve(async (req) => {
     const { endpoint = "datafeed", boundingBox, lineNames, stopCodes, operatorRef, noc, search, limit, lat, lng, radiusKm, atcoAreaCodes } = body;
 
     if (endpoint === "naptan") {
-      return await handleNaptan({ lat, lng, radiusKm, atcoAreaCodes, boundingBox });
+      return await handleNaptan({ lat, lng, radiusKm, atcoAreaCodes, boundingBox }, corsHeaders);
     }
 
     if (endpoint === "timetable") {
-      return await handleTimetable(BODS_API_KEY, { noc, search, limit, boundingBox });
+      return await handleTimetable(BODS_API_KEY, { noc, search, limit, boundingBox }, corsHeaders);
     }
 
     // Default: SIRI-VM live location data
-    return await handleDatafeed(BODS_API_KEY, { boundingBox, lineNames, stopCodes, operatorRef });
+    return await handleDatafeed(BODS_API_KEY, { boundingBox, lineNames, stopCodes, operatorRef }, corsHeaders);
 
   } catch (error) {
     console.error("BODS proxy error:", error);
