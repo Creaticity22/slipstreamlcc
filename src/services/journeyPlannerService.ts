@@ -42,11 +42,14 @@ export async function planJourney(
   try {
     console.log("[journey-planner] calling edge function, from:", from, "to:", to);
 
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token;
-    if (sessionError || !accessToken || !sessionData.session?.user?.id) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken =
+      session?.access_token ??
+      (await supabase.auth.refreshSession()).data.session?.access_token;
+    if (!accessToken) {
       return { options: [], error: "Sign in to plan a journey", source: "error" };
     }
+
 
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/journey-planner`,
