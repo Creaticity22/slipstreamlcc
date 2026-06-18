@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// BODS proxy — public transport data, no auth required
 
 
 const corsHeaders = {
