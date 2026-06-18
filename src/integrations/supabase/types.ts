@@ -470,15 +470,7 @@ export type Database = {
       }
     }
     Views: {
-      co2_leaderboard: {
-        Row: {
-          display_name: string | null
-          total_co2_saved_kg: number | null
-          trip_count: number | null
-          user_id: string | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       complete_weekly_challenge: {
@@ -520,6 +512,15 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_co2_leaderboard: {
+        Args: never
+        Returns: {
+          display_name: string
+          total_co2_saved_kg: number
+          trip_count: number
+          user_id: string
+        }[]
       }
       get_shared_trip: { Args: { p_token: string }; Returns: Json }
       log_journey_usage: {
