@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Plus, Trash2, Phone, Mail, MapPin, Shield } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -32,7 +32,7 @@ const SafetyPage = () => {
   const [contact, setContact] = useState("");
   const [adding, setAdding] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("safety_contacts")
@@ -40,11 +40,11 @@ const SafetyPage = () => {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     setContacts((data as Contact[]) ?? []);
-  };
+  }, [user]);
 
   useEffect(() => {
     load();
-  }, [user]);
+  }, [load]);
 
   const add = async () => {
     if (!user || !name || !contact) return;

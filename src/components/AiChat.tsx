@@ -101,6 +101,16 @@ const AiChat = () => {
       });
     };
 
+    const showError = (msg: string) => {
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") {
+          return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content: msg } : m));
+        }
+        return [...prev, { role: "assistant", content: msg }];
+      });
+    };
+
     try {
       const resp = await fetch(CHAT_URL, {
         method: "POST",
@@ -113,7 +123,11 @@ const AiChat = () => {
 
       if (!resp.ok || !resp.body) {
         const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || "Failed to connect");
+        showError(
+          err?.error ||
+            "Sorry, I couldn't reach the assistant right now. Please try again."
+        );
+        return;
       }
 
       const reader = resp.body.getReader();
@@ -147,11 +161,12 @@ const AiChat = () => {
       // Save complete assistant message
       if (assistantSoFar) {
         await saveMessage("assistant", assistantSoFar);
+      } else {
+        showError("Sorry, I couldn't reach the assistant right now. Please try again.");
       }
     } catch (e) {
       console.error("Chat error:", e);
-      const fallback = "Sorry, I couldn't connect right now. Try again in a sec! 😊";
-      upsertAssistant(fallback);
+      showError("Sorry, I couldn't reach the assistant right now. Please try again.");
     } finally {
       setIsLoading(false);
     }
