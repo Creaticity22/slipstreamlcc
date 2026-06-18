@@ -119,6 +119,8 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
   const [walkingLoading, setWalkingLoading] = useState(false);
   const [selectedBus, setSelectedBus] = useState<string | null>(null);
   const [selectedStopName, setSelectedStopName] = useState<string>("");
+  const [nowTick, setNowTick] = useState(Date.now());
+
 
   const refLat = userPosition?.lat ?? 53.825;
   const refLng = userPosition?.lng ?? -1.576;
@@ -164,6 +166,13 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
     const interval = setInterval(refresh, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refresh]);
+
+  // Tick every 10s to refresh the "updated X seconds ago" label
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 10_000);
+    return () => clearInterval(t);
+  }, []);
+
 
   const handleGetDirections = async (dep: DisplayDeparture) => {
     if (!userPosition || !dep.busLat || !dep.busLng) return;
@@ -344,12 +353,20 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
       </AnimatePresence>
 
       {!isLive && error && !loading && (
-        <div className="bg-slipstream-gold/10 border border-slipstream-gold/30 rounded-xl p-3 flex items-start gap-2.5">
-          <WifiOff className="w-4 h-4 text-slipstream-gold mt-0.5 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-foreground">Live data unavailable</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Could not reach BODS. We'll keep trying every 30 seconds.</p>
+        <div className="bg-slipstream-coral/10 border border-slipstream-coral/30 rounded-xl p-3 flex items-start gap-2.5">
+          <WifiOff className="w-4 h-4 text-slipstream-coral mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">Live data unavailable right now — check back shortly</p>
+            <p className="text-xs text-muted-foreground mt-0.5">We'll keep trying every 30 seconds.</p>
           </div>
+          <button
+            onClick={refresh}
+            className="shrink-0 inline-flex items-center gap-1 rounded-lg bg-slipstream-coral text-white text-xs font-semibold px-2.5 py-1.5 hover:opacity-90"
+            aria-label="Retry"
+          >
+            <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
+            Retry
+          </button>
         </div>
       )}
 
@@ -367,11 +384,12 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
 
       <p className="text-center text-[10px] text-muted-foreground">
         {lastUpdated
-          ? `Updated at ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk · Stops: NaPTAN`
+          ? `Updated ${Math.max(0, Math.floor((nowTick - lastUpdated.getTime()) / 1000))} seconds ago · ${formatTime(lastUpdated)} · Source: data.bus-data.dft.gov.uk · Stops: NaPTAN`
           : loading
           ? "Fetching live data from BODS…"
           : "No data available"}
       </p>
+
     </div>
   );
 };
