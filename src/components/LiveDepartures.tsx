@@ -28,6 +28,7 @@ interface DisplayDeparture {
   distanceKm: number | null;
   busLat: number | null;
   busLng: number | null;
+  occupancy: string | null;
 }
 
 interface Props {
@@ -76,6 +77,7 @@ function liveToDeparture(dep: LiveDeparture, refLat: number, refLng: number): Di
     distanceKm,
     busLat: dep.location?.lat ?? null,
     busLng: dep.location?.lng ?? null,
+    occupancy: dep.occupancy ?? null,
   };
 }
 
@@ -291,6 +293,21 @@ const LiveDepartures = ({ userPosition, bbox }: Props) => {
                         />
                       ))}
                     </div>
+                    {dep.occupancy && (() => {
+                      const o = dep.occupancy.toLowerCase();
+                      const map: Record<string, { label: string; cls: string }> = {
+                        full: { label: "Full", cls: "bg-slipstream-coral/15 text-slipstream-coral" },
+                        standingavailable: { label: "Standing", cls: "bg-slipstream-gold/15 text-slipstream-gold" },
+                        seatsavailable: { label: "Seats", cls: "bg-slipstream-teal/15 text-slipstream-teal" },
+                      };
+                      const entry = map[o];
+                      if (!entry) return null;
+                      return (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${entry.cls}`}>
+                          {entry.label}
+                        </span>
+                      );
+                    })()}
                     {nearestStop && (
                       <span className="text-[10px] text-primary font-medium">🚏 {nearestStop.name}</span>
                     )}
