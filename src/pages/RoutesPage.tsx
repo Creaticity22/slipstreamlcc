@@ -29,6 +29,10 @@ const RoutesPage = () => {
   const [loading, setLoading] = useState(true);
   const [options, setOptions] = useState<JourneyOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const geo = useGeolocation();
+  const bbox = geo.toBbox(10);
+  const overlaidOptions = useLiveBusOverlay(options, bbox);
+
 
   const search = useCallback(async () => {
     if (!from || !to) {
