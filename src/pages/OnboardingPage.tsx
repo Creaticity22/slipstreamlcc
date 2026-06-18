@@ -12,7 +12,6 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
-import { onboardedKey } from "@/components/OnboardingGate";
 
 const STEPS = ["Welcome", "Places", "Destination", "Travel", "Access", "Safety", "Confidence", "Done"] as const;
 
@@ -79,10 +78,13 @@ const OnboardingPage = () => {
         low_walking: lowWalking,
         avoid_hills: avoidHills,
         confidence_level: confidence,
-        onboarded: true,
         home_destination: finalDestination || null,
       });
-      try { localStorage.setItem(onboardedKey(user.id), "1"); } catch { /* ignore */ }
+      await supabase
+        .from("profiles")
+        .update({ onboarded: true })
+        .eq("user_id", user.id);
+      try { localStorage.setItem(`slipstream:onboarded:${user.id}`, "1"); } catch { /* ignore */ }
       toast({ title: "You're all set!", description: "Welcome to Slipstream." });
       navigate("/", { replace: true });
     } catch (e) {
@@ -93,9 +95,12 @@ const OnboardingPage = () => {
   };
 
   const skip = async () => {
-    await save({ onboarded: true });
     if (user) {
-      try { localStorage.setItem(onboardedKey(user.id), "1"); } catch { /* ignore */ }
+      await supabase
+        .from("profiles")
+        .update({ onboarded: true })
+        .eq("user_id", user.id);
+      try { localStorage.setItem(`slipstream:onboarded:${user.id}`, "1"); } catch { /* ignore */ }
     }
     navigate("/", { replace: true });
   };
