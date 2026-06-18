@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { Leaf } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { getCarbonEquivalent } from "@/lib/carbonEquivalents";
+
 
 const CACHE_TTL_MS = 60_000;
 
@@ -60,6 +62,15 @@ export default function ImpactCard() {
         <div>
           <p className="text-2xl font-display font-bold">{co2.toFixed(1)} kg</p>
           <p className="text-xs opacity-70">CO₂ saved</p>
+          {(() => {
+            const equiv = getCarbonEquivalent(co2);
+            return (
+              <p className="text-xs opacity-60 flex items-center gap-1 mt-1">
+                <span>{equiv.emoji}</span>
+                <span>like {equiv.label}</span>
+              </p>
+            );
+          })()}
         </div>
         <div>
           <p className="text-2xl font-display font-bold">{trips}</p>

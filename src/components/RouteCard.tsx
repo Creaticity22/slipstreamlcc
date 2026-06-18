@@ -1,6 +1,8 @@
 import { motion } from "framer-motion";
 import { Bus, Train, Footprints, Leaf, Zap, ArrowLeftRight, ArrowRight, Clock, Users } from "lucide-react";
 import type { JourneyOption, JourneyLeg } from "@/services/journeyPlannerService";
+import { getCarComparison, getTotalDistanceKm } from "@/lib/carbonComparison";
+
 
 function OccupancyDot({ occupancy }: { occupancy: string }) {
   const o = occupancy.toLowerCase();
@@ -48,6 +50,10 @@ const RouteCard = (props: JourneyOption) => {
   const TypeIcon = cfg.Icon;
   const changesLabel = changes === 0 ? "Direct" : changes === 1 ? "1 change" : `${changes} changes`;
 
+  const distKm = getTotalDistanceKm(legs);
+  const carComparison = getCarComparison(co2Kg, distKm);
+
+
   return (
     <motion.div
       whileTap={{ scale: 0.98 }}
@@ -78,6 +84,13 @@ const RouteCard = (props: JourneyOption) => {
           </p>
         </div>
       </div>
+
+      {carComparison && (
+        <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-1.5 rounded-lg">
+          <span>🚗</span>
+          <span>{carComparison} vs driving</span>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1.5 pt-1">
         {legs.map((leg, i) => {

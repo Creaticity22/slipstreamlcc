@@ -8,6 +8,8 @@ import BrandHeader from "@/components/BrandHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { getCarbonEquivalents } from "@/lib/carbonEquivalents";
+
 
 interface TripRow {
   id: string;
@@ -147,6 +149,22 @@ export default function HistoryPage() {
               <StatTile label="CO₂ saved" value={`${stats.totalCo2.toFixed(1)} kg`} icon={<Leaf className="w-4 h-4 text-slipstream-teal" />} />
               <StatTile label="Distance" value={`${stats.totalDist.toFixed(1)} km`} icon={<MapPin className="w-4 h-4 text-slipstream-coral" />} />
             </div>
+
+            {stats.totalCo2 > 0 && (() => {
+              const equivs = getCarbonEquivalents(stats.totalCo2);
+              return (
+                <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-3 space-y-1.5 mt-2">
+                  <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">That's equivalent to…</p>
+                  {equivs.map((e, i) => (
+                    <p key={i} className="text-xs text-emerald-600 dark:text-emerald-500 flex items-center gap-1.5">
+                      <span className="text-base leading-none">{e.emoji}</span>
+                      {e.label}
+                    </p>
+                  ))}
+                </div>
+              );
+            })()}
+
 
             <Button
               onClick={share}
