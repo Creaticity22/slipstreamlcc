@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { BodsProxyAuthError, callBodsProxy } from "@/services/bodsProxyClient";
 
 export interface NaptanStop {
   atcoCode: string;
@@ -27,27 +27,12 @@ export async function fetchNearbyStops(
   radiusKm = 1
 ): Promise<NaptanResponse> {
   try {
-    const { data, error } = await supabase.functions.invoke("bods-proxy", {
-      body: {
-        endpoint: "naptan",
-        lat,
-        lng,
-        radiusKm,
-      },
+    return await callBodsProxy<NaptanResponse>({
+      endpoint: "naptan",
+      lat,
+      lng,
+      radiusKm,
     });
-
-    if (error) {
-      console.error("NaPTAN edge function error:", error);
-      return {
-        stops: [],
-        count: 0,
-        source: "error",
-        updatedAt: new Date().toISOString(),
-        error: error.message,
-      };
-    }
-
-    return data as NaptanResponse;
   } catch (err) {
     console.error("Failed to fetch NaPTAN data:", err);
     return {
@@ -55,7 +40,7 @@ export async function fetchNearbyStops(
       count: 0,
       source: "error",
       updatedAt: new Date().toISOString(),
-      error: err instanceof Error ? err.message : "Unknown error",
+      error: err instanceof BodsProxyAuthError ? "Sign in to see nearby stops" : err instanceof Error ? err.message : "Unknown error",
     };
   }
 }

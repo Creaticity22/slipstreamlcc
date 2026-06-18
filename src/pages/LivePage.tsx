@@ -4,7 +4,7 @@ import { MapPin, List, Map as MapIcon, Locate, Loader2, Stethoscope } from "luci
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import BrandHeader from "@/components/BrandHeader";
-import { supabase } from "@/integrations/supabase/client";
+import { BodsProxyAuthError, callBodsProxy } from "@/services/bodsProxyClient";
 import { toast } from "sonner";
 
 const LivePage = () => {
@@ -13,17 +13,14 @@ const LivePage = () => {
 
   const checkBodsHealth = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke("bods-proxy", {
-        body: { endpoint: "health" },
-      });
-      if (error) throw error;
+      const data = await callBodsProxy<Record<string, unknown>>({ endpoint: "health" });
       toast.success("BODS health check", {
         description: JSON.stringify(data, null, 2),
         duration: 8000,
       });
     } catch (e: any) {
       toast.error("BODS health check failed", {
-        description: e?.message || "Unknown error",
+        description: e instanceof BodsProxyAuthError ? "Sign in before running the health check" : e?.message || "Unknown error",
         duration: 8000,
       });
     }
