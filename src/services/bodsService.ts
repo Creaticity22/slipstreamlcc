@@ -54,6 +54,33 @@ export interface Bbox {
   maxLon: number;
 }
 
+const CACHE_TTL_MS = 10_000;
+const responseCache = new Map<string, { expiresAt: number; response: BodsResponse | TimetableResponse }>();
+const inFlightRequests = new Map<string, Promise<BodsResponse | TimetableResponse>>();
+
+async function invokeBodsProxy<T extends BodsResponse | TimetableResponse>(body: Record<string, unknown>): Promise<T> {
+  const key = JSON.stringify(body);
+  const cached = responseCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.response as T;
+
+  const existing = inFlightRequests.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const request = supabase.functions
+    .invoke("bods-proxy", { body })
+    .then(({ data, error }) => {
+      if (error) throw error;
+      responseCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, response: data as T });
+      return data as T;
+    })
+    .finally(() => {
+      inFlightRequests.delete(key);
+    });
+
+  inFlightRequests.set(key, request);
+  return request;
+}
+
 export async function fetchLiveDepartures(
   lines: string[] | undefined,
   bbox: Bbox,
@@ -74,23 +101,8 @@ export async function fetchLiveDepartures(
     };
     if (lines && lines.length > 0) body.lineNames = lines;
 
-    const { data, error } = await supabase.functions.invoke("bods-proxy", {
-      body,
-    });
-
-    if (error) {
-      console.error("Edge function error:", error);
-      return {
-        departures: [],
-        updatedAt: new Date().toISOString(),
-        source: "error",
-        error: error.message,
-      };
-    }
-
-    return data as BodsResponse;
+    return await invokeBodsProxy<BodsResponse>(body);
   } catch (err) {
-    console.error("Failed to fetch BODS data:", err);
     return {
       departures: [],
       updatedAt: new Date().toISOString(),
@@ -123,24 +135,8 @@ export async function fetchTimetableDatasets(
       boundingBox: bbox,
     };
 
-    const { data, error } = await supabase.functions.invoke("bods-proxy", {
-      body,
-    });
-
-    if (error) {
-      console.error("Timetable edge function error:", error);
-      return {
-        datasets: [],
-        count: 0,
-        updatedAt: new Date().toISOString(),
-        source: "error",
-        error: error.message,
-      };
-    }
-
-    return data as TimetableResponse;
+    return await invokeBodsProxy<TimetableResponse>(body);
   } catch (err) {
-    console.error("Failed to fetch timetable data:", err);
     return {
       datasets: [],
       count: 0,
