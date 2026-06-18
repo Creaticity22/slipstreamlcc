@@ -1,12 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Clock, Trophy, BookOpen, User } from "lucide-react";
+import { Search, Clock, Trophy, History, User } from "lucide-react";
 import { motion } from "framer-motion";
 
 const tabs = [
   { path: "/", icon: Search, label: "Plan" },
   { path: "/live", icon: Clock, label: "Live" },
   { path: "/points", icon: Trophy, label: "Points" },
-  { path: "/learn", icon: BookOpen, label: "Learn" },
+  { path: "/history", icon: History, label: "History" },
   { path: "/profile", icon: User, label: "Profile" },
 ];
 

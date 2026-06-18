@@ -239,9 +239,12 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          current_streak: number
           display_name: string | null
           id: string
+          last_trip_date: string | null
           level: number
+          longest_streak: number
           streak_days: number
           total_co2_saved: number
           total_points: number
@@ -251,9 +254,12 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          current_streak?: number
           display_name?: string | null
           id?: string
+          last_trip_date?: string | null
           level?: number
+          longest_streak?: number
           streak_days?: number
           total_co2_saved?: number
           total_points?: number
@@ -263,9 +269,12 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          current_streak?: number
           display_name?: string | null
           id?: string
+          last_trip_date?: string | null
           level?: number
+          longest_streak?: number
           streak_days?: number
           total_co2_saved?: number
           total_points?: number
@@ -390,11 +399,67 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_challenges: {
+        Row: {
+          challenge_key: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          points_awarded: number
+          progress: number
+          target: number
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          challenge_key: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          points_awarded?: number
+          progress?: number
+          target?: number
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          challenge_key?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          points_awarded?: number
+          progress?: number
+          target?: number
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      complete_weekly_challenge: {
+        Args: { p_challenge_id: string; p_points: number }
+        Returns: {
+          challenge_key: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          points_awarded: number
+          progress: number
+          target: number
+          user_id: string
+          week_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "weekly_challenges"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_shared_trip: { Args: { p_token: string }; Returns: Json }
       log_journey_usage: {
         Args: { p_from: string; p_to: string }

@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { useStreak } from "@/hooks/useStreak";
+import { useWeeklyChallenges } from "@/hooks/useWeeklyChallenges";
+import { currentWeekStart } from "@/lib/challenges";
 
 interface TripStep {
   stepNumber: number;
@@ -38,6 +41,8 @@ const TripPage = () => {
   const navigate = useNavigate();
   const { tripId } = useParams<{ tripId: string }>();
   const { user } = useAuth();
+  const { recordTrip } = useStreak();
+  const { updateProgress } = useWeeklyChallenges();
   const [trip, setTrip] = useState<Trip | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
@@ -92,6 +97,39 @@ const TripPage = () => {
           mode,
         })
         .eq("id", trip.id);
+
+      // Streak + weekly challenges
+      try {
+        const newStreak = await recordTrip();
+
+        if (user) {
+          const weekStartIso = currentWeekStart() + "T00:00:00";
+          const { data: weekTrips } = await supabase
+            .from("trips")
+            .select("started_at, co2_saved_kg")
+            .eq("user_id", user.id)
+            .eq("status", "completed")
+            .gte("started_at", weekStartIso);
+
+          const trips = weekTrips ?? [];
+          const tripCount = trips.length;
+          const earlyBirdCount = trips.filter((t) => {
+            const d = new Date(t.started_at);
+            return d.getHours() < 8 || (d.getHours() === 8 && d.getMinutes() < 30);
+          }).length;
+          const weeklyCo2 = trips.reduce((s, t) => s + (t.co2_saved_kg ?? 0), 0);
+
+          await Promise.all([
+            updateProgress("trips_5", tripCount),
+            updateProgress("early_bird", earlyBirdCount),
+            weeklyCo2 >= 1 ? updateProgress("co2_1kg", 1) : Promise.resolve(),
+            newStreak && newStreak >= 3 ? updateProgress("streak_3", newStreak) : Promise.resolve(),
+          ]);
+        }
+      } catch (e) {
+        console.error("Gamification update failed", e);
+      }
+
       toast({ title: "Trip complete!", description: `Nice one — you saved ${co2SavedKg} kg CO₂.` });
       navigate("/");
       return;

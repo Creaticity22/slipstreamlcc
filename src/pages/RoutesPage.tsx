@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, WifiOff, RefreshCw, Bus } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import RouteCard from "@/components/RouteCard";
+import RouteCard, { mapBodsOccupancy, type OccupancyLabel } from "@/components/RouteCard";
 import { fetchLiveDepartures, LiveDeparture } from "@/services/bodsService";
 import { useGeolocation } from "@/hooks/useGeolocation";
 
@@ -25,6 +25,7 @@ interface RouteData {
   duration: string;
   co2: string;
   crowding: "Low" | "Medium" | "High";
+  occupancy?: OccupancyLabel | null;
   legs: { mode: "bus" | "train" | "walk"; line: string; duration: string }[];
   delay?: number;
 }
@@ -97,6 +98,7 @@ function buildRoutesFromLive(departures: LiveDeparture[], refLat: number, refLng
       duration: `${totalMinutes} min`,
       co2: estimateCo2(dep.distKm + 2),
       crowding,
+      occupancy: mapBodsOccupancy(dep.occupancy),
       legs: [
         { mode: "walk", line: "Walk", duration: `${walkMinutes} min` },
         {
