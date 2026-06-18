@@ -70,7 +70,8 @@ const QuickActions = () => {
 
 
   const getMeHomeSafe = async () => {
-    if (!user) {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
       toast({ title: "Sign in to use Get me home safe" });
       navigate("/profile");
       return;
@@ -88,9 +89,10 @@ const QuickActions = () => {
     const { data: trip, error } = await supabase
       .from("trips")
       .insert({
-        user_id: user.id,
+        user_id: authUser.id,
         from_label: fromLabel,
         to_label: prefs.home_destination,
+
         status: "in_progress",
         current_step_number: 1,
         plan_json: {
