@@ -4,26 +4,25 @@ import { Leaf } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
-const CO2_PER_KM_KG = 0.082;
-const AVG_TRIP_KM = 8;
-
 export default function ImpactCard() {
   const { user } = useAuth();
   const [trips, setTrips] = useState(0);
   const [points, setPoints] = useState(0);
+  const [co2, setCo2] = useState(0);
 
   useEffect(() => {
     if (!user) {
       setTrips(0);
       setPoints(0);
+      setCo2(0);
       return;
     }
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     (async () => {
-      const [{ count }, { data: profile }] = await Promise.all([
+      const [{ data: tripRows }, { data: profile }] = await Promise.all([
         supabase
           .from("trips")
-          .select("id", { count: "exact", head: true })
+          .select("co2_saved_kg")
           .eq("user_id", user.id)
           .eq("status", "completed")
           .gte("started_at", sevenDaysAgo),
@@ -33,12 +32,12 @@ export default function ImpactCard() {
           .eq("user_id", user.id)
           .maybeSingle(),
       ]);
-      setTrips(count ?? 0);
+      const rows = tripRows ?? [];
+      setTrips(rows.length);
+      setCo2(rows.reduce((s, r) => s + Number(r.co2_saved_kg ?? 0), 0));
       setPoints(profile?.total_points ?? 0);
     })();
   }, [user]);
-
-  const co2Kg = (trips * AVG_TRIP_KM * CO2_PER_KM_KG).toFixed(1);
 
   return (
     <motion.div
@@ -53,7 +52,7 @@ export default function ImpactCard() {
       </div>
       <div className="flex gap-6">
         <div>
-          <p className="text-2xl font-display font-bold">{co2Kg} kg</p>
+          <p className="text-2xl font-display font-bold">{co2.toFixed(1)} kg</p>
           <p className="text-xs opacity-70">CO₂ saved</p>
         </div>
         <div>
