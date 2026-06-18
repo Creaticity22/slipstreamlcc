@@ -192,6 +192,7 @@ export type Database = {
           avoid_hills: boolean
           confidence_level: number
           created_at: string
+          home_destination: string | null
           id: string
           late_night_default: boolean
           low_data_mode: boolean
@@ -206,6 +207,7 @@ export type Database = {
           avoid_hills?: boolean
           confidence_level?: number
           created_at?: string
+          home_destination?: string | null
           id?: string
           late_night_default?: boolean
           low_data_mode?: boolean
@@ -220,6 +222,7 @@ export type Database = {
           avoid_hills?: boolean
           confidence_level?: number
           created_at?: string
+          home_destination?: string | null
           id?: string
           late_night_default?: boolean
           low_data_mode?: boolean
@@ -338,12 +341,15 @@ export type Database = {
       }
       trips: {
         Row: {
+          co2_saved_kg: number | null
           created_at: string
           current_step_number: number
+          distance_km: number | null
           ended_at: string | null
           from_label: string | null
           id: string
           last_check_in_at: string | null
+          mode: string | null
           plan_json: Json | null
           started_at: string
           status: string
@@ -351,12 +357,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          co2_saved_kg?: number | null
           created_at?: string
           current_step_number?: number
+          distance_km?: number | null
           ended_at?: string | null
           from_label?: string | null
           id?: string
           last_check_in_at?: string | null
+          mode?: string | null
           plan_json?: Json | null
           started_at?: string
           status?: string
@@ -364,12 +373,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          co2_saved_kg?: number | null
           created_at?: string
           current_step_number?: number
+          distance_km?: number | null
           ended_at?: string | null
           from_label?: string | null
           id?: string
           last_check_in_at?: string | null
+          mode?: string | null
           plan_json?: Json | null
           started_at?: string
           status?: string
