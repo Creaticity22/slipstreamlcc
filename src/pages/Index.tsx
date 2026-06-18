@@ -5,6 +5,7 @@ import FrequentJourneys from "@/components/FrequentJourneys";
 import SponsoredRewardsRow from "@/components/SponsoredRewardsRow";
 import ImpactCard from "@/components/ImpactCard";
 import LiveNudge from "@/components/LiveNudge";
+import NearbyStopsRow from "@/components/NearbyStopsRow";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import BrandHeader from "@/components/BrandHeader";
@@ -13,6 +14,10 @@ const Index = () => {
   const { user } = useAuth();
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] ||
                     user?.user_metadata?.name?.split(" ")[0] || null;
+
+  const handleStopSelect = (stopName: string) => {
+    window.dispatchEvent(new CustomEvent("slipstream:setFrom", { detail: stopName }));
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -30,7 +35,6 @@ const Index = () => {
           }
         />
 
-        {/* Search */}
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -39,19 +43,16 @@ const Index = () => {
           <JourneySearch />
         </motion.div>
 
-        {/* Frequently used journeys (auto-tracked) */}
+        <NearbyStopsRow onSelect={handleStopSelect} />
+
         <FrequentJourneys />
 
-        {/* Quick actions: safety, help now, glossary, start trip */}
         <QuickActions />
 
-        {/* Sponsored rewards — additive, scrolls naturally, never blocks core content */}
         <SponsoredRewardsRow placement="home" title="Opportunities for you" limit={1} />
 
-        {/* Impact card (real data from trips + profile) */}
         <ImpactCard />
 
-        {/* Smart nudge (real live departure for top frequent journey, hidden if no data) */}
         <LiveNudge />
       </div>
     </div>
@@ -59,4 +60,5 @@ const Index = () => {
 };
 
 export default Index;
+
 
