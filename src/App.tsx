@@ -7,7 +7,9 @@ import { AuthProvider } from "@/hooks/useAuth";
 import BottomNav from "@/components/BottomNav";
 import AiChat from "@/components/AiChat";
 import OnboardingGate from "@/components/OnboardingGate";
+import AuthGate from "@/components/AuthGate";
 import InstallPrompt from "@/components/InstallPrompt";
+import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import RoutesPage from "./pages/RoutesPage";
 import LivePage from "./pages/LivePage";
@@ -29,8 +31,11 @@ const queryClient = new QueryClient();
 
 const Chrome = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const hideChrome =
-    location.pathname.startsWith("/trip/share/") || location.pathname === "/onboarding";
+    !user ||
+    location.pathname.startsWith("/trip/share/") ||
+    location.pathname === "/onboarding";
   if (hideChrome) return null;
   return (
     <>
