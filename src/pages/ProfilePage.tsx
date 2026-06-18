@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { LogIn, LogOut, User as UserIcon, Trophy, Heart, MessageCircle } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { LogOut, User as UserIcon, Trophy, Heart, MessageCircle, Zap, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth, signInAsDemo } from "@/hooks/useAuth";
 import { lovable } from "@/integrations/lovable/index";
 import { useNavigate } from "react-router-dom";
 import BrandHeader from "@/components/BrandHeader";
@@ -8,12 +10,22 @@ import BrandHeader from "@/components/BrandHeader";
 const ProfilePage = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const handleGoogleSignIn = async () => {
     const { error } = await lovable.auth.signInWithOAuth("google", {
       redirect_uri: window.location.origin,
     });
     if (error) console.error("Sign-in error:", error);
+  };
+
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    const { error } = await signInAsDemo();
+    if (error) {
+      toast.error("Demo unavailable", { description: "Please try signing in manually." });
+    }
+    setDemoLoading(false);
   };
 
   if (loading) {
@@ -50,6 +62,30 @@ const ProfilePage = () => {
                   <span className="text-sm text-foreground">{item.text}</span>
                 </div>
               ))}
+            </div>
+
+            <div className="space-y-3">
+              <button
+                onClick={handleDemoLogin}
+                disabled={demoLoading}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-primary text-primary-foreground font-semibold py-3 px-4 rounded-2xl shadow-lg text-sm hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                {demoLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                Try the demo — no sign up needed
+              </button>
+              <p className="text-[11px] text-muted-foreground text-center -mt-1">
+                Pre-loaded with journeys, CO₂ stats &amp; a streak
+              </p>
+
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">or sign in with your account</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
             </div>
 
             <motion.button

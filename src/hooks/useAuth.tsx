@@ -47,3 +47,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+export async function signInAsDemo() {
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: "demo@slipstreamapp.co.uk",
+    password: "SlipstreamDemo2024!",
+  });
+  return { data, error };
+}
