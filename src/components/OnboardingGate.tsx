@@ -1,59 +1,44 @@
 import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { usePreferences } from "@/hooks/usePreferences";
+import { supabase } from "@/integrations/supabase/client";
 
-export const onboardedKey = (userId: string) => `slipstream:onboarded:${userId}`;
+const SKIP_PATHS = ["/onboarding", "/profile", "/trust", "/privacy"];
 
-/**
- * Redirects newly signed-in users to /onboarding once.
- * Skipped on share pages, the onboarding page itself, and auth-related pages.
- */
 const OnboardingGate = () => {
-  const { user, loading: authLoading } = useAuth();
-  const { prefs, loading: prefsLoading, refresh } = usePreferences();
+  const { user, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Re-fetch preferences when navigating so a just-finished onboarding is reflected.
   useEffect(() => {
-    if (user) refresh();
-  }, [location.pathname, user, refresh]);
+    if (loading || !user) return;
+    if (SKIP_PATHS.some((p) => location.pathname.startsWith(p))) return;
+    if (location.pathname.startsWith("/trip/share/")) return;
 
-  useEffect(() => {
-    if (authLoading || prefsLoading) return;
-    if (!user) return;
-
-    // Never redirect away from the onboarding page itself, or from public pages.
-    const skipPaths = ["/onboarding", "/profile"];
-    const isSkippable =
-      skipPaths.includes(location.pathname) ||
-      location.pathname.startsWith("/trip/share/") ||
-      location.pathname.startsWith("/trust") ||
-      location.pathname.startsWith("/privacy");
-    if (isSkippable) return;
-
-    // Local short-circuit: if we marked this user as onboarded in this browser,
-    // trust it even if the prefs row hasn't propagated to this hook yet.
+    const lsKey = `slipstream:onboarded:${user.id}`;
     try {
-      if (localStorage.getItem(onboardedKey(user.id)) === "1") return;
+      if (localStorage.getItem(lsKey) === "1") return;
     } catch {
       /* ignore */
     }
 
-    if (prefs && !prefs.onboarded) {
-      navigate("/onboarding", { replace: true });
-    }
-
-    // Keep localStorage in sync once we see a truthy server value.
-    if (prefs?.onboarded) {
-      try {
-        localStorage.setItem(onboardedKey(user.id), "1");
-      } catch {
-        /* ignore */
-      }
-    }
-  }, [user, prefs, authLoading, prefsLoading, location.pathname, navigate]);
+    supabase
+      .from("profiles")
+      .select("onboarded")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.onboarded) {
+          try {
+            localStorage.setItem(lsKey, "1");
+          } catch {
+            /* ignore */
+          }
+        } else {
+          navigate("/onboarding", { replace: true });
+        }
+      });
+  }, [user, loading, location.pathname, navigate]);
 
   return null;
 };
