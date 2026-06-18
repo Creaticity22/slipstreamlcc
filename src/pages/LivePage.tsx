@@ -1,13 +1,34 @@
 import LiveDepartures from "@/components/LiveDepartures";
 import LiveMap from "@/components/LiveMap";
-import { MapPin, List, Map as MapIcon, Locate, Loader2 } from "lucide-react";
+import { MapPin, List, Map as MapIcon, Locate, Loader2, Stethoscope } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import BrandHeader from "@/components/BrandHeader";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const LivePage = () => {
   const geo = useGeolocation(true);
   const bbox = geo.toBbox(10);
+
+  const checkBodsHealth = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("bods-proxy", {
+        body: { endpoint: "health" },
+      });
+      if (error) throw error;
+      toast.success("BODS health check", {
+        description: JSON.stringify(data, null, 2),
+        duration: 8000,
+      });
+    } catch (e: any) {
+      toast.error("BODS health check failed", {
+        description: e?.message || "Unknown error",
+        duration: 8000,
+      });
+    }
+  };
+
 
   const locationLabel = geo.error
     ? "Using default location"
