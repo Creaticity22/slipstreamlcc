@@ -97,13 +97,6 @@ function co2ForLeg(mode: "bus" | "train" | "walk", distM: number): number {
   return 0;
 }
 
-function co2ForLeg(mode: "bus" | "train" | "walk", distM: number): number {
-  const km = distM / 1000;
-  if (mode === "bus") return km * 0.089;
-  if (mode === "train") return km * 0.035;
-  return 0;
-}
-
 function to24h(s: string | undefined): string {
   if (!s) return "";
   const m = s.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
