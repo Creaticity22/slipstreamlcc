@@ -83,17 +83,25 @@ const RouteCard = (props: JourneyOption) => {
         {legs.map((leg, i) => {
           const Icon = legIcon(leg.mode);
           return (
-            <div
-              key={i}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-xs font-medium text-foreground"
-              title={`${leg.from} → ${leg.to}`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span className="truncate max-w-[120px]">{leg.line}</span>
-              <span className="text-muted-foreground">· {leg.durationMins}m</span>
+            <div key={i} className="flex items-center gap-1.5" title={`${leg.from} → ${leg.to}`}>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-xs font-medium text-foreground">
+                <Icon className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[120px]">{leg.line}</span>
+                <span className="text-muted-foreground">· {leg.durationMins}m</span>
+              </div>
+              {leg.liveDelayMins !== undefined && leg.liveDelayMins !== 0 && (
+                <span className={`flex items-center gap-0.5 text-[10px] font-semibold ${
+                  leg.liveDelayMins > 0 ? "text-red-500" : "text-emerald-500"
+                }`}>
+                  <Clock className="w-3 h-3" />
+                  {leg.liveDelayMins > 0 ? `+${leg.liveDelayMins}m` : `${leg.liveDelayMins}m`}
+                </span>
+              )}
+              {leg.liveOccupancy && <OccupancyDot occupancy={leg.liveOccupancy} />}
             </div>
           );
         })}
+
       </div>
     </motion.div>
   );
