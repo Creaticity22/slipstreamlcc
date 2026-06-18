@@ -29,13 +29,15 @@ export interface JourneyResult {
   options: JourneyOption[];
   error?: string;
   source: "live" | "error";
+  stepFree?: boolean;
 }
 
 export async function planJourney(
   from: string,
   to: string,
   fromCoords?: { lat: number; lng: number },
-  toCoords?: { lat: number; lng: number }
+  toCoords?: { lat: number; lng: number },
+  stepFree?: boolean
 ): Promise<JourneyResult> {
   try {
     console.log("[journey-planner] calling edge function, from:", from, "to:", to);
@@ -55,7 +57,7 @@ export async function planJourney(
           Authorization: `Bearer ${accessToken}`,
           apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ from, to, fromCoords, toCoords }),
+        body: JSON.stringify({ from, to, fromCoords, toCoords, stepFree }),
       }
     );
 
@@ -75,7 +77,7 @@ export async function planJourney(
     if (options.length === 0) {
       return { options: [], error: payload?.error || "No routes found", source: "error" };
     }
-    return { options, source: "live" };
+    return { options, source: "live", stepFree: payload?.stepFree === true };
   } catch (e) {
     return {
       options: [],

@@ -313,6 +313,39 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_routes: {
+        Row: {
+          created_at: string
+          from_coords: Json | null
+          from_place: string
+          id: string
+          label: string
+          to_coords: Json | null
+          to_place: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_coords?: Json | null
+          from_place: string
+          id?: string
+          label: string
+          to_coords?: Json | null
+          to_place: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_coords?: Json | null
+          from_place?: string
+          id?: string
+          label?: string
+          to_coords?: Json | null
+          to_place?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trip_shares: {
         Row: {
           created_at: string
@@ -479,6 +512,15 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      get_co2_leaderboard: {
+        Args: never
+        Returns: {
+          display_name: string
+          total_co2_saved_kg: number
+          trip_count: number
+          user_id: string
+        }[]
       }
       get_shared_trip: { Args: { p_token: string }; Returns: Json }
       log_journey_usage: {

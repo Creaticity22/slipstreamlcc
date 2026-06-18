@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { MapPin, ArrowRight, Navigation, Locate, Loader2 } from "lucide-react";
+import { MapPin, ArrowRight, Navigation, Locate, Loader2, Accessibility } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFrequentJourneys } from "@/hooks/useFrequentJourneys";
 import { usePreferences } from "@/hooks/usePreferences";
+import { Switch } from "@/components/ui/switch";
+
+const STEP_FREE_KEY = "slipstream_step_free";
 
 interface JourneySearchProps {
   externalFrom?: string;
@@ -13,6 +16,18 @@ interface JourneySearchProps {
 const JourneySearch = ({ externalFrom }: JourneySearchProps = {}) => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [stepFree, setStepFreeState] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(STEP_FREE_KEY) === "1";
+  });
+  const setStepFree = (v: boolean) => {
+    setStepFreeState(v);
+    try {
+      window.localStorage.setItem(STEP_FREE_KEY, v ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  };
   const navigate = useNavigate();
   const geo = useGeolocation();
   const { logJourney } = useFrequentJourneys();
@@ -44,6 +59,7 @@ const JourneySearch = ({ externalFrom }: JourneySearchProps = {}) => {
           to,
           fromCoords,
           toCoords: undefined,
+          stepFree,
         },
       });
     }
@@ -92,7 +108,20 @@ const JourneySearch = ({ externalFrom }: JourneySearchProps = {}) => {
                 <Locate className="w-4 h-4 text-primary" />
               )}
             </button>
+        </div>
+
+        <div className="flex items-center justify-between px-1 py-2">
+          <div className="flex items-center gap-2">
+            <Accessibility className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Step-free route</span>
           </div>
+          <Switch
+            checked={stepFree}
+            onCheckedChange={setStepFree}
+            aria-label="Step-free route only"
+          />
+        </div>
+
         </div>
 
         <div className="flex items-center gap-3">

@@ -6,6 +6,7 @@ import FrequentJourneys from "@/components/FrequentJourneys";
 import SponsoredRewardsRow from "@/components/SponsoredRewardsRow";
 import ImpactCard from "@/components/ImpactCard";
 import LiveNudge from "@/components/LiveNudge";
+import LeaveNowNudge from "@/components/LeaveNowNudge";
 import NearbyStopsRow from "@/components/NearbyStopsRow";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +33,8 @@ const Index = () => {
             </button>
           }
         />
+
+        <LeaveNowNudge />
 
         <motion.div
           initial={{ opacity: 0, y: 12 }}

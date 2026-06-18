@@ -269,6 +269,7 @@ Deno.serve(async (req) => {
     const to = typeof body?.to === "string" ? body.to.trim() : "";
     let fromCoords: Coords | undefined = body?.fromCoords;
     let toCoords: Coords | undefined = body?.toCoords;
+    const stepFree: boolean = body?.stepFree === true;
 
     if (!from || !to) {
       return new Response(JSON.stringify({ options: [], error: "Missing from/to" }), {
@@ -295,6 +296,7 @@ Deno.serve(async (req) => {
       region: "gb",
       key: apiKey,
     });
+    if (stepFree) params.set("avoid", "steps");
     const url = `https://maps.googleapis.com/maps/api/directions/json?${params.toString()}`;
 
     const res = await fetchWithTimeout(url);
@@ -328,7 +330,7 @@ Deno.serve(async (req) => {
     }
 
     const options = pickTopThree(mapped);
-    return new Response(JSON.stringify({ options }), {
+    return new Response(JSON.stringify({ options, stepFree }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
