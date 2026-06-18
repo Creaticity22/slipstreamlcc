@@ -43,7 +43,8 @@ const QuickActions = () => {
   const { position } = useGeolocation();
 
   const startSampleTrip = async () => {
-    if (!user) {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
       toast({ title: "Sign in to start a trip" });
       navigate("/profile");
       return;
@@ -51,7 +52,7 @@ const QuickActions = () => {
     const { data, error } = await supabase
       .from("trips")
       .insert({
-        user_id: user.id,
+        user_id: authUser.id,
         from_label: "Headingley",
         to_label: "Leeds City Centre",
         plan_json: SAMPLE_PLAN,
@@ -67,8 +68,10 @@ const QuickActions = () => {
     navigate(`/trip/${data.id}`);
   };
 
+
   const getMeHomeSafe = async () => {
-    if (!user) {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
       toast({ title: "Sign in to use Get me home safe" });
       navigate("/profile");
       return;
@@ -86,9 +89,10 @@ const QuickActions = () => {
     const { data: trip, error } = await supabase
       .from("trips")
       .insert({
-        user_id: user.id,
+        user_id: authUser.id,
         from_label: fromLabel,
         to_label: prefs.home_destination,
+
         status: "in_progress",
         current_step_number: 1,
         plan_json: {
@@ -112,7 +116,7 @@ const QuickActions = () => {
     // Create share token
     const { data: share } = await supabase
       .from("trip_shares")
-      .insert({ trip_id: trip.id, user_id: user.id })
+      .insert({ trip_id: trip.id, user_id: authUser.id })
       .select()
       .single();
 
@@ -123,7 +127,8 @@ const QuickActions = () => {
       const { data: contacts } = await supabase
         .from("safety_contacts")
         .select("name, phone_or_email")
-        .eq("user_id", user.id)
+        .eq("user_id", authUser.id)
+
         .limit(1);
 
       if (contacts && contacts.length > 0) {
