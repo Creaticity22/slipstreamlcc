@@ -1,0 +1,1 @@
+ALTER VIEW public.co2_leaderboard SET (security_invoker = true);
