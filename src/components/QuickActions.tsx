@@ -116,7 +116,7 @@ const QuickActions = () => {
     // Create share token
     const { data: share } = await supabase
       .from("trip_shares")
-      .insert({ trip_id: trip.id, user_id: user.id })
+      .insert({ trip_id: trip.id, user_id: authUser.id })
       .select()
       .single();
 
@@ -127,7 +127,8 @@ const QuickActions = () => {
       const { data: contacts } = await supabase
         .from("safety_contacts")
         .select("name, phone_or_email")
-        .eq("user_id", user.id)
+        .eq("user_id", authUser.id)
+
         .limit(1);
 
       if (contacts && contacts.length > 0) {
