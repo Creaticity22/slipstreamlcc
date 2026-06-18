@@ -4,14 +4,16 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
 // --- Mocks ---
+const stablePosition = { lat: 53.8, lng: -1.55 };
+const stableGeo = {
+  position: stablePosition,
+  loading: false,
+  error: null,
+  refresh: () => {},
+  toBbox: () => null,
+};
 vi.mock("@/hooks/useGeolocation", () => ({
-  useGeolocation: () => ({
-    position: { lat: 53.8, lng: -1.55 },
-    loading: false,
-    error: null,
-    refresh: vi.fn(),
-    toBbox: () => null,
-  }),
+  useGeolocation: () => stableGeo,
 }));
 
 vi.mock("@/hooks/useFrequentJourneys", () => ({
