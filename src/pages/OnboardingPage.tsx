@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Home, GraduationCap, Briefcase, ArrowRight, ArrowLeft, Check, Accessibility, Shield } from "lucide-react";
+import { Home, GraduationCap, Briefcase, ArrowRight, ArrowLeft, Check, Accessibility, Shield, School } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,16 +13,29 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
 
-const STEPS = ["Welcome", "Places", "Travel", "Access", "Safety", "Confidence", "Done"] as const;
+const STEPS = ["Welcome", "Places", "Destination", "Travel", "Access", "Safety", "Confidence", "Done"] as const;
+
+const DESTINATION_OPTIONS = [
+  "Leeds City College (Quarry Hill)",
+  "Leeds City College (Printworks)",
+  "University of Leeds",
+  "Leeds Beckett University",
+  "Bradford College",
+  "Huddersfield University",
+  "Wakefield College",
+];
 
 const OnboardingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { prefs, save } = usePreferences();
+  const { save } = usePreferences();
   const [step, setStep] = useState(0);
   const [home, setHome] = useState("");
   const [school, setSchool] = useState("");
   const [work, setWork] = useState("");
+  const [destination, setDestination] = useState("");
+  const [destinationQuery, setDestinationQuery] = useState("");
+  const [destinationOther, setDestinationOther] = useState("");
   const [routePriority, setRoutePriority] = useState<"fastest" | "cheapest" | "fewest_changes">("fewest_changes");
   const [stepFree, setStepFree] = useState(false);
   const [lowWalking, setLowWalking] = useState(false);
@@ -34,6 +47,10 @@ const OnboardingPage = () => {
 
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
+
+  const filteredDestinations = DESTINATION_OPTIONS.filter((o) =>
+    o.toLowerCase().includes(destinationQuery.toLowerCase())
+  );
 
   const finish = async () => {
     if (!user) return;
@@ -54,6 +71,7 @@ const OnboardingPage = () => {
           phone_or_email: contactPhone,
         });
       }
+      const finalDestination = destination === "__other__" ? destinationOther.trim() : destination;
       await save({
         route_priority: routePriority,
         step_free: stepFree,
@@ -61,6 +79,7 @@ const OnboardingPage = () => {
         avoid_hills: avoidHills,
         confidence_level: confidence,
         onboarded: true,
+        home_destination: finalDestination || null,
       });
       toast({ title: "You're all set!", description: "Welcome to Slipstream." });
       navigate("/");
@@ -79,14 +98,11 @@ const OnboardingPage = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <div className="max-w-lg mx-auto w-full px-4 pt-6 pb-24 flex-1 flex flex-col">
-        {/* Progress */}
         <div className="flex gap-1 mb-6">
           {STEPS.map((_, i) => (
             <div
               key={i}
-              className={`h-1 flex-1 rounded-full transition-colors ${
-                i <= step ? "bg-primary" : "bg-muted"
-              }`}
+              className={`h-1 flex-1 rounded-full transition-colors ${i <= step ? "bg-primary" : "bg-muted"}`}
             />
           ))}
         </div>
@@ -141,6 +157,53 @@ const OnboardingPage = () => {
 
             {step === 2 && (
               <div>
+                <h2 className="text-2xl font-display font-bold mb-2 flex items-center gap-2">
+                  <School className="w-6 h-6" /> Where are you studying or working?
+                </h2>
+                <p className="text-muted-foreground mb-4">We'll pre-fill this as your default destination.</p>
+                <Input
+                  value={destinationQuery}
+                  onChange={(e) => setDestinationQuery(e.target.value)}
+                  placeholder="Search…"
+                  className="mb-3"
+                />
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  {filteredDestinations.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setDestination(opt)}
+                      className={`w-full text-left p-3 rounded-xl border-2 transition-colors ${
+                        destination === opt ? "border-primary bg-primary/5" : "border-border bg-card"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">{opt}</span>
+                        {destination === opt && <Check className="w-4 h-4 text-primary" />}
+                      </div>
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setDestination("__other__")}
+                    className={`w-full text-left p-3 rounded-xl border-2 transition-colors ${
+                      destination === "__other__" ? "border-primary bg-primary/5" : "border-border bg-card"
+                    }`}
+                  >
+                    <span className="text-sm font-medium">Other</span>
+                  </button>
+                  {destination === "__other__" && (
+                    <Input
+                      value={destinationOther}
+                      onChange={(e) => setDestinationOther(e.target.value)}
+                      placeholder="Type your destination"
+                      className="mt-2"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div>
                 <h2 className="text-2xl font-display font-bold mb-2">How do you like to travel?</h2>
                 <p className="text-muted-foreground mb-6">We'll suggest the right kind of route.</p>
                 <div className="space-y-3">
@@ -153,9 +216,7 @@ const OnboardingPage = () => {
                       key={opt.v}
                       onClick={() => setRoutePriority(opt.v as typeof routePriority)}
                       className={`w-full text-left p-4 rounded-xl border-2 transition-colors ${
-                        routePriority === opt.v
-                          ? "border-primary bg-primary/5"
-                          : "border-border bg-card"
+                        routePriority === opt.v ? "border-primary bg-primary/5" : "border-border bg-card"
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -171,7 +232,7 @@ const OnboardingPage = () => {
               </div>
             )}
 
-            {step === 3 && (
+            {step === 4 && (
               <div>
                 <h2 className="text-2xl font-display font-bold mb-2 flex items-center gap-2">
                   <Accessibility className="w-6 h-6" /> Accessibility
@@ -195,7 +256,7 @@ const OnboardingPage = () => {
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div>
                 <h2 className="text-2xl font-display font-bold mb-2 flex items-center gap-2">
                   <Shield className="w-6 h-6" /> Trusted contact
@@ -215,7 +276,7 @@ const OnboardingPage = () => {
               </div>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <div>
                 <h2 className="text-2xl font-display font-bold mb-2">How confident are you?</h2>
                 <p className="text-muted-foreground mb-6">We'll adjust how much guidance to give you.</p>
@@ -224,13 +285,7 @@ const OnboardingPage = () => {
                     <span>New traveller</span>
                     <span>Confident</span>
                   </div>
-                  <Slider
-                    value={[confidence]}
-                    onValueChange={([v]) => setConfidence(v)}
-                    min={1}
-                    max={5}
-                    step={1}
-                  />
+                  <Slider value={[confidence]} onValueChange={([v]) => setConfidence(v)} min={1} max={5} step={1} />
                   <p className="text-center text-sm text-foreground mt-4 font-medium">
                     {confidence === 1 && "I'm new — give me lots of help"}
                     {confidence === 2 && "Still learning the ropes"}
@@ -242,7 +297,7 @@ const OnboardingPage = () => {
               </div>
             )}
 
-            {step === 6 && (
+            {step === 7 && (
               <div className="text-center pt-12">
                 <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-primary flex items-center justify-center mb-6">
                   <Check className="w-10 h-10 text-primary-foreground" />
@@ -259,8 +314,7 @@ const OnboardingPage = () => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Nav buttons */}
-        {step > 0 && step < 6 && (
+        {step > 0 && step < STEPS.length - 1 && (
           <div className="flex gap-3 mt-8">
             <Button variant="outline" onClick={back} className="flex-1">
               <ArrowLeft className="w-4 h-4 mr-2" /> Back
