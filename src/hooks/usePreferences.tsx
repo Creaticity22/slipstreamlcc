@@ -12,7 +12,6 @@ export interface Preferences {
   late_night_default: boolean;
   low_data_mode: boolean;
   confidence_level: number;
-  onboarded: boolean;
   home_destination?: string | null;
 }
 
@@ -24,7 +23,6 @@ const DEFAULTS: Preferences = {
   late_night_default: false,
   low_data_mode: false,
   confidence_level: 3,
-  onboarded: false,
   home_destination: null,
 };
 
