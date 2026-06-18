@@ -221,6 +221,7 @@ const OnboardingPage = () => {
                     { v: "fewest_changes", t: "Fewest changes", d: "Simpler — fewer interchanges to worry about" },
                     { v: "fastest", t: "Fastest", d: "Get there as quickly as possible" },
                     { v: "cheapest", t: "Cheapest", d: "Save money where you can" },
+                    { v: "lowest_co2", t: "Lowest CO₂", d: "Greenest route — lowest carbon emissions" },
                   ].map((opt) => (
                     <button
                       key={opt.v}
