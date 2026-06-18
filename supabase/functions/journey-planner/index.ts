@@ -97,61 +97,104 @@ function co2ForLeg(mode: "bus" | "train" | "walk", distM: number): number {
   return 0;
 }
 
-interface RawLeg {
-  mode?: string;
-  line_name?: string;
-  operator_name?: string;
-  origin_name?: string;
-  destination_name?: string;
-  duration?: string | number;
-  distance?: string | number;
-  departure_time?: string;
-  arrival_time?: string;
-  departs_at?: string;
-  arrives_at?: string;
-}
-
-function parseDuration(d: unknown): number {
-  if (typeof d === "number") return Math.round(d / 60);
-  if (typeof d === "string") {
-    // formats: "PT15M", "00:15:00", "15"
-    const iso = d.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
-    if (iso) return (Number(iso[1] || 0) * 60) + Number(iso[2] || 0);
-    const hms = d.match(/^(\d+):(\d+)(?::(\d+))?$/);
-    if (hms) return Number(hms[1]) * 60 + Number(hms[2]);
-    const n = Number(d);
-    if (!isNaN(n)) return Math.round(n / 60);
-  }
+function co2ForLeg(mode: "bus" | "train" | "walk", distM: number): number {
+  const km = distM / 1000;
+  if (mode === "bus") return km * 0.089;
+  if (mode === "train") return km * 0.035;
   return 0;
 }
 
-function hhmm(s: string | undefined): string {
+function to24h(s: string | undefined): string {
   if (!s) return "";
-  const m = s.match(/(\d{1,2}):(\d{2})/);
-  if (m) return `${m[1].padStart(2, "0")}:${m[2]}`;
-  return s;
+  const m = s.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i);
+  if (!m) {
+    const m2 = s.match(/(\d{1,2}):(\d{2})/);
+    return m2 ? `${m2[1].padStart(2, "0")}:${m2[2]}` : s;
+  }
+  let h = Number(m[1]);
+  const min = m[2];
+  const ap = (m[3] || "").toLowerCase();
+  if (ap === "pm" && h < 12) h += 12;
+  if (ap === "am" && h === 12) h = 0;
+  return `${String(h).padStart(2, "0")}:${min}`;
 }
 
-function mapRoute(route: { duration?: string | number; departure_time?: string; arrival_time?: string; routes?: RawLeg[]; route_parts?: RawLeg[] }): JourneyOption | null {
-  const rawLegs: RawLeg[] = route.route_parts || route.routes || [];
-  if (!rawLegs.length) return null;
-  const legs: JourneyLeg[] = rawLegs.map((l) => {
-    const mode = mapMode(l.mode || "");
-    const distM = Number(l.distance || 0) || 0;
+function stripHtml(s: string): string {
+  return (s || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+interface GStep {
+  travel_mode: string;
+  duration?: { value: number };
+  distance?: { value: number };
+  html_instructions?: string;
+  start_address?: string;
+  transit_details?: {
+    line?: { short_name?: string; name?: string; vehicle?: { type?: string } };
+    departure_stop?: { name?: string };
+    arrival_stop?: { name?: string };
+    headsign?: string;
+    departure_time?: { text?: string };
+    arrival_time?: { text?: string };
+  };
+}
+
+interface GRoute {
+  legs?: Array<{
+    duration?: { value: number };
+    departure_time?: { text: string };
+    arrival_time?: { text: string };
+    steps?: GStep[];
+  }>;
+}
+
+function mapGoogleMode(travel: string, vehicleType?: string): "bus" | "train" | "walk" {
+  if (travel === "WALKING") return "walk";
+  const v = (vehicleType || "").toUpperCase();
+  if (v === "BUS" || v === "TRAM" || v === "TROLLEYBUS" || v === "SHARE_TAXI") return "bus";
+  return "train";
+}
+
+function mapGoogleRoute(route: GRoute): JourneyOption | null {
+  const leg = route.legs?.[0];
+  if (!leg || !leg.steps?.length) return null;
+  const steps = leg.steps;
+  const legs: JourneyLeg[] = steps.map((s, i) => {
+    const td = s.transit_details;
+    const mode = mapGoogleMode(s.travel_mode, td?.line?.vehicle?.type);
+    const distM = s.distance?.value ?? 0;
+    const durMins = Math.round((s.duration?.value ?? 0) / 60);
+    let line = "Walk";
+    let from = "";
+    let to = "";
+    let headsign: string | undefined;
+    if (s.travel_mode === "TRANSIT" && td) {
+      line = td.line?.short_name || td.line?.name || "Service";
+      from = td.departure_stop?.name || "";
+      to = td.arrival_stop?.name || "";
+      headsign = td.headsign;
+    } else {
+      line = "Walk";
+      from = stripHtml(s.html_instructions || s.start_address || "");
+      const next = steps[i + 1];
+      to = next?.transit_details?.departure_stop?.name || "";
+    }
     return {
       mode,
-      line: l.line_name || l.operator_name || (mode === "walk" ? "Walk" : "Service"),
-      from: l.origin_name || "",
-      to: l.destination_name || "",
-      durationMins: parseDuration(l.duration),
+      line,
+      from,
+      to,
+      durationMins: durMins,
       distanceM: distM,
-      departure: hhmm(l.departure_time || l.departs_at),
-      arrival: hhmm(l.arrival_time || l.arrives_at),
+      departure: to24h(td?.departure_time?.text),
+      arrival: to24h(td?.arrival_time?.text),
+      headsign,
     };
   });
-  const departureTime = hhmm(route.departure_time) || legs[0]?.departure || "";
-  const arrivalTime = hhmm(route.arrival_time) || legs[legs.length - 1]?.arrival || "";
-  const durationMins = parseDuration(route.duration) || legs.reduce((s, l) => s + l.durationMins, 0);
+  const departureTime = to24h(leg.departure_time?.text) || legs[0]?.departure || "";
+  const arrivalTime = to24h(leg.arrival_time?.text) || legs[legs.length - 1]?.arrival || "";
+  const durationMins = Math.round((leg.duration?.value ?? 0) / 60) ||
+    legs.reduce((s, l) => s + l.durationMins, 0);
   const transitLegs = legs.filter((l) => l.mode !== "walk");
   const changes = Math.max(0, transitLegs.length - 1);
   const co2Kg = legs.reduce((s, l) => s + co2ForLeg(l.mode, l.distanceM), 0);
@@ -165,6 +208,7 @@ function mapRoute(route: { duration?: string | number; departure_time?: string; 
     legs,
   };
 }
+
 
 function pickTopThree(all: JourneyOption[]): JourneyOption[] {
   if (all.length === 0) return [];
