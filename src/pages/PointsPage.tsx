@@ -1,6 +1,8 @@
 import PointsSummary from "@/components/PointsSummary";
 import SponsoredRewardsRow from "@/components/SponsoredRewardsRow";
 import BrandHeader from "@/components/BrandHeader";
+import StreakBanner from "@/components/StreakBanner";
+import WeeklyChallengesCard from "@/components/WeeklyChallengesCard";
 
 const PointsPage = () => {
   return (
@@ -11,7 +13,9 @@ const PointsPage = () => {
           subtitle="Keep riding green to level up!"
         />
 
+        <StreakBanner />
         <PointsSummary />
+        <WeeklyChallengesCard />
 
         {/* Sponsored rewards marketplace — partner-powered rewards & badges */}
         <SponsoredRewardsRow placement="rewards" title="Rewards marketplace" />

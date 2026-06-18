@@ -20,6 +20,7 @@ import HelpNowPage from "./pages/HelpNowPage";
 import GlossaryPage from "./pages/GlossaryPage";
 import TripPage from "./pages/TripPage";
 import TripSharePage from "./pages/TripSharePage";
+import HistoryPage from "./pages/HistoryPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/glossary" element={<GlossaryPage />} />
             <Route path="/trip/:tripId" element={<TripPage />} />
             <Route path="/trip/share/:token" element={<TripSharePage />} />
+            <Route path="/history" element={<HistoryPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Chrome />
