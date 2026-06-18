@@ -7,7 +7,9 @@ import { AuthProvider } from "@/hooks/useAuth";
 import BottomNav from "@/components/BottomNav";
 import AiChat from "@/components/AiChat";
 import OnboardingGate from "@/components/OnboardingGate";
+import AuthGate from "@/components/AuthGate";
 import InstallPrompt from "@/components/InstallPrompt";
+import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import RoutesPage from "./pages/RoutesPage";
 import LivePage from "./pages/LivePage";
@@ -29,8 +31,11 @@ const queryClient = new QueryClient();
 
 const Chrome = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const hideChrome =
-    location.pathname.startsWith("/trip/share/") || location.pathname === "/onboarding";
+    !user ||
+    location.pathname.startsWith("/trip/share/") ||
+    location.pathname === "/onboarding";
   if (hideChrome) return null;
   return (
     <>
@@ -49,25 +54,27 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <OnboardingGate />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/routes" element={<RoutesPage />} />
-            <Route path="/live" element={<LivePage />} />
-            <Route path="/points" element={<PointsPage />} />
-            <Route path="/learn" element={<LearnPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/safety" element={<SafetyPage />} />
-            <Route path="/help" element={<HelpNowPage />} />
-            <Route path="/glossary" element={<GlossaryPage />} />
-            <Route path="/trip/:tripId" element={<TripPage />} />
-            <Route path="/trip/share/:token" element={<TripSharePage />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/trust" element={<TrustPage />} />
-            <Route path="/privacy" element={<TrustPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AuthGate>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/routes" element={<RoutesPage />} />
+              <Route path="/live" element={<LivePage />} />
+              <Route path="/points" element={<PointsPage />} />
+              <Route path="/learn" element={<LearnPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route path="/safety" element={<SafetyPage />} />
+              <Route path="/help" element={<HelpNowPage />} />
+              <Route path="/glossary" element={<GlossaryPage />} />
+              <Route path="/trip/:tripId" element={<TripPage />} />
+              <Route path="/trip/share/:token" element={<TripSharePage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/trust" element={<TrustPage />} />
+              <Route path="/privacy" element={<TrustPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthGate>
           <Chrome />
         </BrowserRouter>
       </TooltipProvider>
