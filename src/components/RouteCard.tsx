@@ -1,6 +1,29 @@
 import { motion } from "framer-motion";
-import { Bus, Train, Footprints, Leaf, Zap, ArrowLeftRight, ArrowRight } from "lucide-react";
+import { Bus, Train, Footprints, Leaf, Zap, ArrowLeftRight, ArrowRight, Clock, Users } from "lucide-react";
 import type { JourneyOption, JourneyLeg } from "@/services/journeyPlannerService";
+
+function OccupancyDot({ occupancy }: { occupancy: string }) {
+  const o = occupancy.toLowerCase();
+  const color =
+    o.includes("full") || o.includes("standing")
+      ? "bg-red-500"
+      : o.includes("seats") || o.includes("available")
+      ? "bg-emerald-500"
+      : "bg-amber-400";
+  const label =
+    o.includes("full") || o.includes("standing")
+      ? "Busy"
+      : o.includes("seats") || o.includes("available")
+      ? "Quiet"
+      : "Medium";
+  return (
+    <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${color}`}>
+      <Users className="w-2.5 h-2.5" />
+      {label}
+    </span>
+  );
+}
+
 
 type RouteType = JourneyOption["type"];
 
