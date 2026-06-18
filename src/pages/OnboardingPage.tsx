@@ -36,7 +36,7 @@ const OnboardingPage = () => {
   const [destination, setDestination] = useState("");
   const [destinationQuery, setDestinationQuery] = useState("");
   const [destinationOther, setDestinationOther] = useState("");
-  const [routePriority, setRoutePriority] = useState<"fastest" | "cheapest" | "fewest_changes">("fewest_changes");
+  const [routePriority, setRoutePriority] = useState<"fastest" | "cheapest" | "fewest_changes" | "lowest_co2">("fewest_changes");
   const [stepFree, setStepFree] = useState(false);
   const [lowWalking, setLowWalking] = useState(false);
   const [avoidHills, setAvoidHills] = useState(false);
@@ -221,6 +221,7 @@ const OnboardingPage = () => {
                     { v: "fewest_changes", t: "Fewest changes", d: "Simpler — fewer interchanges to worry about" },
                     { v: "fastest", t: "Fastest", d: "Get there as quickly as possible" },
                     { v: "cheapest", t: "Cheapest", d: "Save money where you can" },
+                    { v: "lowest_co2", t: "Lowest CO₂", d: "Greenest route — lowest carbon emissions" },
                   ].map((opt) => (
                     <button
                       key={opt.v}

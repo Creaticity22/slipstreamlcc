@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 export interface Preferences {
   id?: string;
   user_id?: string;
-  route_priority: "fastest" | "cheapest" | "fewest_changes";
+  route_priority: "fastest" | "cheapest" | "fewest_changes" | "lowest_co2";
   step_free: boolean;
   low_walking: boolean;
   avoid_hills: boolean;
