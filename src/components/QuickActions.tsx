@@ -43,7 +43,8 @@ const QuickActions = () => {
   const { position } = useGeolocation();
 
   const startSampleTrip = async () => {
-    if (!user) {
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
       toast({ title: "Sign in to start a trip" });
       navigate("/profile");
       return;
@@ -51,7 +52,7 @@ const QuickActions = () => {
     const { data, error } = await supabase
       .from("trips")
       .insert({
-        user_id: user.id,
+        user_id: authUser.id,
         from_label: "Headingley",
         to_label: "Leeds City Centre",
         plan_json: SAMPLE_PLAN,
@@ -66,6 +67,7 @@ const QuickActions = () => {
     }
     navigate(`/trip/${data.id}`);
   };
+
 
   const getMeHomeSafe = async () => {
     if (!user) {
