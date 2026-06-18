@@ -10,7 +10,10 @@ export interface JourneyLeg {
   departure: string;
   arrival: string;
   headsign?: string;
+  liveDelayMins?: number;
+  liveOccupancy?: string;
 }
+
 
 export interface JourneyOption {
   type: "fastest" | "least-changes" | "lowest-carbon";

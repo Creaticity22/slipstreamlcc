@@ -4,6 +4,9 @@ import { ArrowLeft, RefreshCw, AlertCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import RouteCard from "@/components/RouteCard";
 import { planJourney, type JourneyOption } from "@/services/journeyPlannerService";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { useLiveBusOverlay } from "@/hooks/useLiveBusOverlay";
+
 
 const RoutesPage = () => {
   const navigate = useNavigate();
@@ -26,6 +29,10 @@ const RoutesPage = () => {
   const [loading, setLoading] = useState(true);
   const [options, setOptions] = useState<JourneyOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const geo = useGeolocation();
+  const bbox = geo.toBbox(10);
+  const overlaidOptions = useLiveBusOverlay(options, bbox);
+
 
   const search = useCallback(async () => {
     if (!from || !to) {
@@ -110,7 +117,7 @@ const RoutesPage = () => {
 
         {!loading && options.length > 0 && (
           <div className="space-y-3">
-            {options.map((opt, i) => (
+            {overlaidOptions.map((opt, i) => (
               <motion.div
                 key={`${opt.type}-${i}`}
                 initial={{ opacity: 0, y: 16 }}

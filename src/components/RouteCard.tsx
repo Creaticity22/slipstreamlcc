@@ -1,6 +1,29 @@
 import { motion } from "framer-motion";
-import { Bus, Train, Footprints, Leaf, Zap, ArrowLeftRight, ArrowRight } from "lucide-react";
+import { Bus, Train, Footprints, Leaf, Zap, ArrowLeftRight, ArrowRight, Clock, Users } from "lucide-react";
 import type { JourneyOption, JourneyLeg } from "@/services/journeyPlannerService";
+
+function OccupancyDot({ occupancy }: { occupancy: string }) {
+  const o = occupancy.toLowerCase();
+  const color =
+    o.includes("full") || o.includes("standing")
+      ? "bg-red-500"
+      : o.includes("seats") || o.includes("available")
+      ? "bg-emerald-500"
+      : "bg-amber-400";
+  const label =
+    o.includes("full") || o.includes("standing")
+      ? "Busy"
+      : o.includes("seats") || o.includes("available")
+      ? "Quiet"
+      : "Medium";
+  return (
+    <span className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-semibold text-white ${color}`}>
+      <Users className="w-2.5 h-2.5" />
+      {label}
+    </span>
+  );
+}
+
 
 type RouteType = JourneyOption["type"];
 
@@ -60,17 +83,25 @@ const RouteCard = (props: JourneyOption) => {
         {legs.map((leg, i) => {
           const Icon = legIcon(leg.mode);
           return (
-            <div
-              key={i}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-xs font-medium text-foreground"
-              title={`${leg.from} → ${leg.to}`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              <span className="truncate max-w-[120px]">{leg.line}</span>
-              <span className="text-muted-foreground">· {leg.durationMins}m</span>
+            <div key={i} className="flex items-center gap-1.5" title={`${leg.from} → ${leg.to}`}>
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-muted text-xs font-medium text-foreground">
+                <Icon className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[120px]">{leg.line}</span>
+                <span className="text-muted-foreground">· {leg.durationMins}m</span>
+              </div>
+              {leg.liveDelayMins !== undefined && leg.liveDelayMins !== 0 && (
+                <span className={`flex items-center gap-0.5 text-[10px] font-semibold ${
+                  leg.liveDelayMins > 0 ? "text-red-500" : "text-emerald-500"
+                }`}>
+                  <Clock className="w-3 h-3" />
+                  {leg.liveDelayMins > 0 ? `+${leg.liveDelayMins}m` : `${leg.liveDelayMins}m`}
+                </span>
+              )}
+              {leg.liveOccupancy && <OccupancyDot occupancy={leg.liveOccupancy} />}
             </div>
           );
         })}
+
       </div>
     </motion.div>
   );
