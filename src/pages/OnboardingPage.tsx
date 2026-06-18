@@ -36,7 +36,7 @@ const OnboardingPage = () => {
   const [destination, setDestination] = useState("");
   const [destinationQuery, setDestinationQuery] = useState("");
   const [destinationOther, setDestinationOther] = useState("");
-  const [routePriority, setRoutePriority] = useState<"fastest" | "cheapest" | "fewest_changes">("fewest_changes");
+  const [routePriority, setRoutePriority] = useState<"fastest" | "cheapest" | "fewest_changes" | "lowest_co2">("fewest_changes");
   const [stepFree, setStepFree] = useState(false);
   const [lowWalking, setLowWalking] = useState(false);
   const [avoidHills, setAvoidHills] = useState(false);
