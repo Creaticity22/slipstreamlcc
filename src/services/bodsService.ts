@@ -15,6 +15,7 @@ export interface LiveDeparture {
   operatorRef: string;
   vehicleRef: string;
   recordedAtTime: string;
+  occupancy: string | null;
   location: { lng: number; lat: number } | null;
 }
 

@@ -230,6 +230,8 @@ function parseSiriVM(xml: string, stopCodes: string[], lineFilter: string[]): an
     const vehicleRef = getText("VehicleRef");
     const longitude = getText("Longitude");
     const latitude = getText("Latitude");
+    const occupancyRaw = getText("OccupancyStatus");
+    const occupancy = occupancyRaw || null;
 
     // If we have a lineFilter, only include matching lines
     if (lineFilter.length > 0) {
@@ -307,6 +309,7 @@ function parseSiriVM(xml: string, stopCodes: string[], lineFilter: string[]): an
       operatorRef,
       vehicleRef,
       recordedAtTime,
+      occupancy,
       location: longitude && latitude ? { lng: parseFloat(longitude), lat: parseFloat(latitude) } : null,
     });
   }
