@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFrequentJourneys } from "@/hooks/useFrequentJourneys";
+import { usePreferences } from "@/hooks/usePreferences";
 
 const JourneySearch = () => {
   const [from, setFrom] = useState("");
@@ -11,10 +12,27 @@ const JourneySearch = () => {
   const navigate = useNavigate();
   const geo = useGeolocation();
   const { logJourney } = useFrequentJourneys();
+  const { prefs } = usePreferences();
+
+  // Pre-fill "To" from saved home_destination
+  useEffect(() => {
+    if (prefs?.home_destination && !to) {
+      setTo(prefs.home_destination);
+    }
+  }, [prefs?.home_destination]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for nearby-stop chip taps to set "From"
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (detail) setFrom(detail);
+    };
+    window.addEventListener("slipstream:setFrom", handler);
+    return () => window.removeEventListener("slipstream:setFrom", handler);
+  }, []);
 
   const handleSearch = () => {
     if (from && to) {
-      // Fire-and-forget: track this journey for the home-screen frequent list
       logJourney(from, to);
       navigate("/routes", {
         state: {

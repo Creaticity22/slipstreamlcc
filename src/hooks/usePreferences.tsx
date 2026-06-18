@@ -13,6 +13,7 @@ export interface Preferences {
   low_data_mode: boolean;
   confidence_level: number;
   onboarded: boolean;
+  home_destination?: string | null;
 }
 
 const DEFAULTS: Preferences = {
@@ -24,6 +25,7 @@ const DEFAULTS: Preferences = {
   low_data_mode: false,
   confidence_level: 3,
   onboarded: false,
+  home_destination: null,
 };
 
 export function usePreferences() {

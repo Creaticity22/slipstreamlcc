@@ -7,6 +7,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import BottomNav from "@/components/BottomNav";
 import AiChat from "@/components/AiChat";
 import OnboardingGate from "@/components/OnboardingGate";
+import InstallPrompt from "@/components/InstallPrompt";
 import Index from "./pages/Index";
 import RoutesPage from "./pages/RoutesPage";
 import LivePage from "./pages/LivePage";
@@ -32,6 +33,7 @@ const Chrome = () => {
     <>
       <AiChat />
       <BottomNav />
+      <InstallPrompt />
     </>
   );
 };

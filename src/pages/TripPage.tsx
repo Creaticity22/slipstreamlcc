@@ -77,11 +77,22 @@ const TripPage = () => {
     const total = trip.plan_json?.steps?.length ?? 0;
     const nextStep = trip.current_step_number + 1;
     if (nextStep > total) {
+      // Estimate distance & CO2 saved
+      const distanceKm = 5; // straight-line haversine unavailable without coords; default
+      const mode = "bus";
+      const co2PerKm = mode === "bus" ? 0.082 : 0.171;
+      const co2SavedKg = +(distanceKm * co2PerKm).toFixed(3);
       await supabase
         .from("trips")
-        .update({ status: "completed", ended_at: new Date().toISOString() })
+        .update({
+          status: "completed",
+          ended_at: new Date().toISOString(),
+          distance_km: distanceKm,
+          co2_saved_kg: co2SavedKg,
+          mode,
+        })
         .eq("id", trip.id);
-      toast({ title: "Trip complete!", description: "Nice one. You made it." });
+      toast({ title: "Trip complete!", description: `Nice one — you saved ${co2SavedKg} kg CO₂.` });
       navigate("/");
       return;
     }

@@ -4,42 +4,82 @@ import { Zap } from "lucide-react";
 import { useFrequentJourneys } from "@/hooks/useFrequentJourneys";
 import { useGeolocation } from "@/hooks/useGeolocation";
 import { fetchLiveDepartures, type LiveDeparture } from "@/services/bodsService";
+import { fetchNearbyStops } from "@/services/naptanService";
+
+const WALK_KMH = 4;
+const BUFFER_MIN = 2;
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 export default function LiveNudge() {
   const { journeys } = useFrequentJourneys(1);
-  const { toBbox } = useGeolocation();
+  const { position, toBbox } = useGeolocation();
   const [dep, setDep] = useState<LiveDeparture | null>(null);
+  const [walkMin, setWalkMin] = useState(0);
 
   useEffect(() => {
     const top = journeys[0];
-    const bbox = toBbox(11); // ~0.1° radius
-    if (!top || !bbox) {
+    const bbox = toBbox(11);
+    if (!top || !bbox || !position) {
       setDep(null);
       return;
     }
     let cancelled = false;
     (async () => {
-      const result = await fetchLiveDepartures(undefined, bbox);
-      if (cancelled || result.source === "error") return;
+      const [stopsRes, liveRes] = await Promise.all([
+        fetchNearbyStops(position.lat, position.lng, 1),
+        fetchLiveDepartures(undefined, bbox),
+      ]);
+      if (cancelled) return;
+      if (liveRes.source === "error") {
+        setDep(null);
+        return;
+      }
       const target = top.to_location.toLowerCase();
-      const match = result.departures
+      const match = liveRes.departures
         .filter(
           (d) =>
             d.minutesAway != null &&
-            d.minutesAway >= 5 &&
-            d.minutesAway <= 30 &&
             (d.destination?.toLowerCase().includes(target) ||
               target.includes(d.destination?.toLowerCase() ?? ""))
         )
         .sort((a, b) => (a.minutesAway ?? 0) - (b.minutesAway ?? 0))[0];
+
+      const nearestStop = stopsRes.stops[0];
+      const walkKm = nearestStop
+        ? haversineKm(position.lat, position.lng, nearestStop.lat, nearestStop.lng)
+        : 0.3;
+      setWalkMin(Math.ceil((walkKm / WALK_KMH) * 60) + BUFFER_MIN);
       setDep(match ?? null);
     })();
     return () => {
       cancelled = true;
     };
-  }, [journeys, toBbox]);
+  }, [journeys, toBbox, position]);
 
-  if (!dep) return null;
+  if (!dep || dep.minutesAway == null) return null;
+
+  const leaveIn = dep.minutesAway - walkMin;
+  let title: string;
+  let tone = "text-foreground";
+  if (dep.minutesAway < 5) {
+    title = "Leave now — bus is close!";
+    tone = "text-slipstream-coral";
+  } else if (dep.minutesAway > 25) {
+    title = `Next bus in ${dep.minutesAway} mins — no rush`;
+  } else {
+    title = `Leave in ${Math.max(1, leaveIn)} minutes`;
+  }
 
   return (
     <motion.div
@@ -52,11 +92,9 @@ export default function LiveNudge() {
         <Zap className="w-5 h-5 text-slipstream-gold" />
       </div>
       <div className="flex-1">
-        <p className="text-sm font-semibold text-foreground">
-          Leave in {dep.minutesAway} minutes
-        </p>
+        <p className={`text-sm font-semibold ${tone}`}>{title}</p>
         <p className="text-xs text-muted-foreground">
-          {dep.lineName} to {dep.destination} {dep.status === "on-time" ? "is on time" : `is ${dep.status}`} 🚌
+          {dep.lineName} to {dep.destination} · {dep.status === "on-time" ? "on time" : dep.status} 🚌
         </p>
       </div>
     </motion.div>
