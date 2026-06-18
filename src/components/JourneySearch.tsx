@@ -108,7 +108,20 @@ const JourneySearch = ({ externalFrom }: JourneySearchProps = {}) => {
                 <Locate className="w-4 h-4 text-primary" />
               )}
             </button>
+        </div>
+
+        <div className="flex items-center justify-between px-1 py-2">
+          <div className="flex items-center gap-2">
+            <Accessibility className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-foreground">Step-free route</span>
           </div>
+          <Switch
+            checked={stepFree}
+            onCheckedChange={setStepFree}
+            aria-label="Step-free route only"
+          />
+        </div>
+
         </div>
 
         <div className="flex items-center gap-3">
