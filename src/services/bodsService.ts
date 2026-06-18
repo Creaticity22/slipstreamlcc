@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { BodsProxyAuthError, callBodsProxy } from "@/services/bodsProxyClient";
 
 export interface LiveDeparture {
   lineRef: string;
@@ -66,12 +66,10 @@ async function invokeBodsProxy<T extends BodsResponse | TimetableResponse>(body:
   const existing = inFlightRequests.get(key);
   if (existing) return existing as Promise<T>;
 
-  const request = supabase.functions
-    .invoke("bods-proxy", { body })
-    .then(({ data, error }) => {
-      if (error) throw error;
-      responseCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, response: data as T });
-      return data as T;
+  const request = callBodsProxy<T>(body)
+    .then((data) => {
+      responseCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, response: data });
+      return data;
     })
     .finally(() => {
       inFlightRequests.delete(key);
@@ -107,7 +105,7 @@ export async function fetchLiveDepartures(
       departures: [],
       updatedAt: new Date().toISOString(),
       source: "error",
-      error: err instanceof Error ? err.message : "Unknown error",
+      error: err instanceof BodsProxyAuthError ? "Sign in to see live bus data" : err instanceof Error ? err.message : "Unknown error",
     };
   }
 }
@@ -142,7 +140,7 @@ export async function fetchTimetableDatasets(
       count: 0,
       updatedAt: new Date().toISOString(),
       source: "error",
-      error: err instanceof Error ? err.message : "Unknown error",
+      error: err instanceof BodsProxyAuthError ? "Sign in to see live timetable data" : err instanceof Error ? err.message : "Unknown error",
     };
   }
 }
