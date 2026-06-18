@@ -38,6 +38,8 @@ export async function planJourney(
   toCoords?: { lat: number; lng: number }
 ): Promise<JourneyResult> {
   try {
+    console.log("[journey-planner] calling edge function, from:", from, "to:", to);
+
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     const accessToken = sessionData.session?.access_token;
     if (sessionError || !accessToken || !sessionData.session?.user?.id) {
@@ -59,11 +61,12 @@ export async function planJourney(
 
     const text = await res.text();
     const payload = text ? JSON.parse(text) : null;
+    console.log("[journey-planner] status:", res.status, "payload:", payload);
 
     if (!res.ok) {
       return {
         options: [],
-        error: payload?.error || `Journey planner returned ${res.status}`,
+        error: payload?.error || payload?.message || `HTTP ${res.status}: Journey planner error`,
         source: "error",
       };
     }
