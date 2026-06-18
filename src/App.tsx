@@ -54,25 +54,27 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <OnboardingGate />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/routes" element={<RoutesPage />} />
-            <Route path="/live" element={<LivePage />} />
-            <Route path="/points" element={<PointsPage />} />
-            <Route path="/learn" element={<LearnPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/onboarding" element={<OnboardingPage />} />
-            <Route path="/safety" element={<SafetyPage />} />
-            <Route path="/help" element={<HelpNowPage />} />
-            <Route path="/glossary" element={<GlossaryPage />} />
-            <Route path="/trip/:tripId" element={<TripPage />} />
-            <Route path="/trip/share/:token" element={<TripSharePage />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/trust" element={<TrustPage />} />
-            <Route path="/privacy" element={<TrustPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AuthGate>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/routes" element={<RoutesPage />} />
+              <Route path="/live" element={<LivePage />} />
+              <Route path="/points" element={<PointsPage />} />
+              <Route path="/learn" element={<LearnPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route path="/safety" element={<SafetyPage />} />
+              <Route path="/help" element={<HelpNowPage />} />
+              <Route path="/glossary" element={<GlossaryPage />} />
+              <Route path="/trip/:tripId" element={<TripPage />} />
+              <Route path="/trip/share/:token" element={<TripSharePage />} />
+              <Route path="/history" element={<HistoryPage />} />
+              <Route path="/leaderboard" element={<LeaderboardPage />} />
+              <Route path="/trust" element={<TrustPage />} />
+              <Route path="/privacy" element={<TrustPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthGate>
           <Chrome />
         </BrowserRouter>
       </TooltipProvider>
