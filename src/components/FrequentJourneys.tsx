@@ -12,12 +12,17 @@ const FrequentJourneys = () => {
   if (!loading && journeys.length === 0) return null;
 
   const handleGo = (from: string, to: string) => {
+    const isMyLocation = from.startsWith("📍 My location");
+    const fromCoords =
+      isMyLocation && geo.position
+        ? { lat: geo.position.lat, lng: geo.position.lng }
+        : undefined;
     navigate("/routes", {
       state: {
         from,
         to,
-        userLat: geo.position?.lat,
-        userLng: geo.position?.lng,
+        fromCoords,
+        toCoords: undefined,
       },
     });
   };
