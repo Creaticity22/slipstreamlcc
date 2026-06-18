@@ -8,12 +8,15 @@ export class BodsProxyAuthError extends Error {
 }
 
 export async function callBodsProxy<T>(body: Record<string, unknown>): Promise<T> {
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  const accessToken = sessionData.session?.access_token;
-
-  if (sessionError || !accessToken || !sessionData.session?.user?.id) {
-    throw new BodsProxyAuthError();
+  const { data: { session } } = await supabase.auth.getSession();
+  // If session is null, try refreshing
+  const accessToken =
+    session?.access_token ??
+    (await supabase.auth.refreshSession()).data.session?.access_token;
+  if (!accessToken) {
+    throw new BodsProxyAuthError("Sign in to see live data");
   }
+
 
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/bods-proxy`, {
     method: "POST",
