@@ -6,7 +6,11 @@ import { useGeolocation } from "@/hooks/useGeolocation";
 import { useFrequentJourneys } from "@/hooks/useFrequentJourneys";
 import { usePreferences } from "@/hooks/usePreferences";
 
-const JourneySearch = () => {
+interface JourneySearchProps {
+  externalFrom?: string;
+}
+
+const JourneySearch = ({ externalFrom }: JourneySearchProps = {}) => {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const navigate = useNavigate();
@@ -21,15 +25,10 @@ const JourneySearch = () => {
     }
   }, [prefs?.home_destination]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Listen for nearby-stop chip taps to set "From"
+  // Sync "From" from parent (e.g. nearby-stop chip taps)
   useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      if (detail) setFrom(detail);
-    };
-    window.addEventListener("slipstream:setFrom", handler);
-    return () => window.removeEventListener("slipstream:setFrom", handler);
-  }, []);
+    if (externalFrom) setFrom(externalFrom);
+  }, [externalFrom]);
 
   const handleSearch = () => {
     if (from && to) {

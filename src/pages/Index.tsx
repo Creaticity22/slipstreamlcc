@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import JourneySearch from "@/components/JourneySearch";
 import QuickActions from "@/components/QuickActions";
@@ -12,12 +13,9 @@ import BrandHeader from "@/components/BrandHeader";
 
 const Index = () => {
   const { user } = useAuth();
+  const [fromOverride, setFromOverride] = useState("");
   const firstName = user?.user_metadata?.full_name?.split(" ")[0] ||
                     user?.user_metadata?.name?.split(" ")[0] || null;
-
-  const handleStopSelect = (stopName: string) => {
-    window.dispatchEvent(new CustomEvent("slipstream:setFrom", { detail: stopName }));
-  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -40,10 +38,10 @@ const Index = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
         >
-          <JourneySearch />
+          <JourneySearch externalFrom={fromOverride} />
         </motion.div>
 
-        <NearbyStopsRow onSelect={handleStopSelect} />
+        <NearbyStopsRow onSelect={setFromOverride} />
 
         <FrequentJourneys />
 
@@ -60,5 +58,3 @@ const Index = () => {
 };
 
 export default Index;
-
-
