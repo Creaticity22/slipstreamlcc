@@ -313,6 +313,39 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_routes: {
+        Row: {
+          created_at: string
+          from_coords: Json | null
+          from_place: string
+          id: string
+          label: string
+          to_coords: Json | null
+          to_place: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_coords?: Json | null
+          from_place: string
+          id?: string
+          label: string
+          to_coords?: Json | null
+          to_place: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_coords?: Json | null
+          from_place?: string
+          id?: string
+          label?: string
+          to_coords?: Json | null
+          to_place?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       trip_shares: {
         Row: {
           created_at: string
@@ -437,7 +470,15 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      co2_leaderboard: {
+        Row: {
+          display_name: string | null
+          total_co2_saved_kg: number | null
+          trip_count: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       complete_weekly_challenge: {
