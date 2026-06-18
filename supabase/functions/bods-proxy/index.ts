@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const { endpoint = "datafeed", boundingBox, lineNames, stopCodes, operatorRef, noc, search, limit, lat, lng, radiusKm, atcoAreaCodes } = body;
 
+    if (endpoint === "health") {
+      return await handleHealth(BODS_API_KEY, corsHeaders);
+    }
+
     if (endpoint === "naptan") {
       return await handleNaptan({ lat, lng, radiusKm, atcoAreaCodes, boundingBox }, corsHeaders);
     }
@@ -73,6 +77,7 @@ Deno.serve(async (req) => {
 
     // Default: SIRI-VM live location data
     return await handleDatafeed(BODS_API_KEY, { boundingBox, lineNames, stopCodes, operatorRef }, corsHeaders);
+
 
   } catch (error) {
     console.error("BODS proxy error:", error);
@@ -107,10 +112,10 @@ async function handleDatafeed(
   const params = new URLSearchParams();
   params.set("api_key", apiKey);
 
-  // boundingBox format: minLongitude,minLatitude,maxLongitude,maxLatitude
+  // boundingBox format: minLatitude,minLongitude,maxLatitude,maxLongitude
   if (opts.boundingBox) {
     const bb = opts.boundingBox;
-    params.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
+    params.set("boundingBox", `${bb.minLat},${bb.minLon},${bb.maxLat},${bb.maxLon}`);
   }
 
   // lineRef filter (optional – omit to get all lines)
@@ -127,7 +132,23 @@ async function handleDatafeed(
   const siriUrl = `${BODS_DATAFEED_URL}?${params.toString()}`;
   console.log("Fetching BODS SIRI-VM:", siriUrl.replace(apiKey, "***"));
 
-  const response = await fetch(siriUrl);
+  const fetchWithTimeout = async (url: string): Promise<Response> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    try {
+      const r = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      return r;
+    } catch (err) {
+      clearTimeout(timeout);
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new Error("BODS request timed out — try a smaller bounding box");
+      }
+      throw err;
+    }
+  };
+
+  const response = await fetchWithTimeout(siriUrl);
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -140,11 +161,11 @@ async function handleDatafeed(
       retryParams.set("api_key", apiKey);
       if (opts.boundingBox) {
         const bb = opts.boundingBox;
-        retryParams.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
+        retryParams.set("boundingBox", `${bb.minLat},${bb.minLon},${bb.maxLat},${bb.maxLon}`);
       }
       const retryUrl = `${BODS_DATAFEED_URL}?${retryParams.toString()}`;
       console.log("Retry URL:", retryUrl.replace(apiKey, "***"));
-      const retryResponse = await fetch(retryUrl);
+      const retryResponse = await fetchWithTimeout(retryUrl);
       if (!retryResponse.ok) {
         const retryError = await retryResponse.text();
         console.error(`BODS retry error [${retryResponse.status}]:`, retryError.substring(0, 500));
@@ -177,6 +198,44 @@ async function handleDatafeed(
   });
 }
 
+async function handleHealth(apiKey: string, corsHeaders: Record<string, string>) {
+  if (!apiKey) {
+    return new Response(JSON.stringify({ ok: false, bodsKeyPresent: false, error: "BODS_API_KEY not set" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  try {
+    const params = new URLSearchParams();
+    params.set("api_key", apiKey);
+    // Small bbox around Leeds city centre
+    params.set("boundingBox", "53.79,-1.56,53.81,-1.54");
+    const url = `${BODS_DATAFEED_URL}?${params.toString()}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+    return new Response(JSON.stringify({
+      ok: r.ok,
+      bodsKeyPresent: true,
+      testResponseStatus: r.status,
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({
+      ok: false,
+      bodsKeyPresent: true,
+      error: err instanceof Error ? err.message : "Unknown error",
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+}
+
+
 async function handleTimetable(
   apiKey: string,
   opts: { noc?: string[]; search?: string; limit?: number; boundingBox?: any },
@@ -197,8 +256,8 @@ async function handleTimetable(
   }
   if (opts.boundingBox) {
     const bb = opts.boundingBox;
-    // Timetable uses same format: minLon,minLat,maxLon,maxLat
-    params.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
+    // BODS bbox format: minLat,minLon,maxLat,maxLon
+    params.set("boundingBox", `${bb.minLat},${bb.minLon},${bb.maxLat},${bb.maxLon}`);
   }
 
   const url = `${BODS_TIMETABLE_URL}?${params.toString()}`;
@@ -252,10 +311,13 @@ function parseSiriVM(xml: string, stopCodes: string[], lineFilter: string[]): an
     const occupancyRaw = getText("OccupancyStatus");
     const occupancy = occupancyRaw || null;
 
-    // If we have a lineFilter, only include matching lines
+    // If we have a lineFilter, only include matching lines (operator prefixes & leading zeros tolerated)
     if (lineFilter.length > 0) {
+      const normalise = (s: string) => s.replace(/^[^:]+:0*/, "").toLowerCase();
       const matchesLine = lineFilter.some(
-        (l) => l === lineRef || l === publishedLineName || lineRef.includes(l) || publishedLineName.includes(l)
+        (l) =>
+          normalise(lineRef) === normalise(l) ||
+          normalise(publishedLineName) === normalise(l)
       );
       if (!matchesLine) continue;
     }
