@@ -133,10 +133,10 @@ async function handleDatafeed(
   const params = new URLSearchParams();
   params.set("api_key", apiKey);
 
-  // boundingBox format: minLatitude,minLongitude,maxLatitude,maxLongitude
+  // BODS boundingBox format: minLongitude,minLatitude,maxLongitude,maxLatitude
   if (opts.boundingBox) {
     const bb = opts.boundingBox;
-    params.set("boundingBox", `${bb.minLat},${bb.minLon},${bb.maxLat},${bb.maxLon}`);
+    params.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
   }
 
   // lineRef filter (optional – omit to get all lines)
@@ -182,7 +182,7 @@ async function handleDatafeed(
       retryParams.set("api_key", apiKey);
       if (opts.boundingBox) {
         const bb = opts.boundingBox;
-        retryParams.set("boundingBox", `${bb.minLat},${bb.minLon},${bb.maxLat},${bb.maxLon}`);
+        retryParams.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
       }
       const retryUrl = `${BODS_DATAFEED_URL}?${retryParams.toString()}`;
       console.log("Retry URL:", retryUrl.replace(apiKey, "***"));
@@ -230,7 +230,7 @@ async function handleHealth(apiKey: string, corsHeaders: Record<string, string>)
     const params = new URLSearchParams();
     params.set("api_key", apiKey);
     // Small bbox around Leeds city centre
-    params.set("boundingBox", "53.79,-1.56,53.81,-1.54");
+    params.set("boundingBox", "-1.56,53.79,-1.54,53.81");
     const url = `${BODS_DATAFEED_URL}?${params.toString()}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
@@ -277,8 +277,8 @@ async function handleTimetable(
   }
   if (opts.boundingBox) {
     const bb = opts.boundingBox;
-    // BODS bbox format: minLat,minLon,maxLat,maxLon
-    params.set("boundingBox", `${bb.minLat},${bb.minLon},${bb.maxLat},${bb.maxLon}`);
+    // BODS bbox format: minLon,minLat,maxLon,maxLat
+    params.set("boundingBox", `${bb.minLon},${bb.minLat},${bb.maxLon},${bb.maxLat}`);
   }
 
   const url = `${BODS_TIMETABLE_URL}?${params.toString()}`;
