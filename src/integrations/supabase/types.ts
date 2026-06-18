@@ -245,6 +245,7 @@ export type Database = {
           last_trip_date: string | null
           level: number
           longest_streak: number
+          onboarded: boolean | null
           streak_days: number
           total_co2_saved: number
           total_points: number
@@ -260,6 +261,7 @@ export type Database = {
           last_trip_date?: string | null
           level?: number
           longest_streak?: number
+          onboarded?: boolean | null
           streak_days?: number
           total_co2_saved?: number
           total_points?: number
@@ -275,6 +277,7 @@ export type Database = {
           last_trip_date?: string | null
           level?: number
           longest_streak?: number
+          onboarded?: boolean | null
           streak_days?: number
           total_co2_saved?: number
           total_points?: number
