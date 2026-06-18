@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, AlertTriangle, BusFront, MapPinned, XCircle, ShieldAlert, BatteryLow, Phone, ChevronRight } from "lucide-react";
+import { ArrowLeft, AlertTriangle, BusFront, MapPinned, XCircle, ShieldAlert, BatteryLow, Phone, ChevronRight, MessageCircle, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Scenario {
   id: string;
@@ -11,72 +13,48 @@ interface Scenario {
   reassurance: string;
 }
 
+interface Contact {
+  id: string;
+  name: string;
+  phone_or_email: string;
+  relationship: string | null;
+}
+
+const TRUSTED_PLACES = [
+  { name: "Leeds Rail Station", note: "Staffed 24/7 — meeting points by Platform 1" },
+  { name: "Bradford Interchange", note: "Travel info desk inside main concourse" },
+  { name: "Halifax Bus Station", note: "Staffed waiting area until late evening" },
+  { name: "Huddersfield Station", note: "Help point near ticket office" },
+];
+
 const SCENARIOS: Scenario[] = [
-  {
-    id: "missed",
-    icon: BusFront,
-    title: "Missed bus or train",
-    steps: [
-      "Take a breath — it happens to everyone.",
-      "Check the next departure on the Live page.",
-      "If it's a long wait, look for an alternative route or operator.",
-      "Message your trusted contact so they know there's a delay.",
-    ],
-    reassurance: "Missing one service isn't a problem. The next one is usually within 15 minutes on busy routes.",
-  },
-  {
-    id: "wrong-stop",
-    icon: MapPinned,
-    title: "Wrong stop or platform",
-    steps: [
-      "Stay calm and stay where you are if it's safe.",
-      "Open the Live page to see your current location.",
-      "Tap a nearby bus stop to get walking directions to the right one.",
-      "If you're at a station, ask staff at the help point — they expect this question every day.",
-    ],
-    reassurance: "Getting on the wrong service is very common. Staff at staffed stations help with this constantly.",
-  },
-  {
-    id: "cancelled",
-    icon: XCircle,
-    title: "Service cancelled",
-    steps: [
-      "Look for the next departure on the same route.",
-      "Check Live for buses on parallel routes going the same way.",
-      "If it's late, head to a staffed station or busy bus stop and wait there.",
-      "Let your trusted contact know you'll be later than planned.",
-    ],
-    reassurance: "Most operators run replacement services or apologise on the next ticket. You won't be stranded.",
-  },
-  {
-    id: "unsafe",
-    icon: ShieldAlert,
-    title: "I feel unsafe",
-    steps: [
-      "Move to a busy, well-lit area — the front of the bus, near the driver, or the staffed part of a station.",
-      "On a train: walk to the next carriage. Bus: sit closer to the driver.",
-      "Text 61016 (BTP) on trains, or 999 if it's an emergency.",
-      "Open the share-trip page and send the link to your trusted contact so they know where you are.",
-    ],
-    reassurance: "Trust your instincts. You don't need a 'good reason' to move seats or get off at the next stop. The driver and staff are there to help.",
-  },
-  {
-    id: "battery",
-    icon: BatteryLow,
-    title: "Phone dead or low battery",
-    steps: [
-      "Memorise your next 1–2 steps before the screen goes off.",
-      "Look for free charging at staffed stations, big shops, or coffee places.",
-      "Most ticket machines and bus drivers can tell you the next stop or service.",
-      "If you're meant to meet someone, head to your usual meeting spot — they'll guess that.",
-    ],
-    reassurance: "You don't need your phone to get home. The transport network worked for decades without one — staff and signs will guide you.",
-  },
+  { id: "missed", icon: BusFront, title: "Missed bus or train", steps: ["Take a breath — it happens to everyone.", "Check the next departure on the Live page.", "If it's a long wait, look for an alternative route or operator.", "Message your trusted contact so they know there's a delay."], reassurance: "Missing one service isn't a problem. The next one is usually within 15 minutes on busy routes." },
+  { id: "wrong-stop", icon: MapPinned, title: "Wrong stop or platform", steps: ["Stay calm and stay where you are if it's safe.", "Open the Live page to see your current location.", "Tap a nearby bus stop to get walking directions to the right one.", "If you're at a station, ask staff at the help point — they expect this question every day."], reassurance: "Getting on the wrong service is very common. Staff at staffed stations help with this constantly." },
+  { id: "cancelled", icon: XCircle, title: "Service cancelled", steps: ["Look for the next departure on the same route.", "Check Live for buses on parallel routes going the same way.", "If it's late, head to a staffed station or busy bus stop and wait there.", "Let your trusted contact know you'll be later than planned."], reassurance: "Most operators run replacement services or apologise on the next ticket. You won't be stranded." },
+  { id: "unsafe", icon: ShieldAlert, title: "I feel unsafe", steps: ["Move to a busy, well-lit area — the front of the bus, near the driver, or the staffed part of a station.", "On a train: walk to the next carriage. Bus: sit closer to the driver.", "Text 61016 (BTP) on trains, or 999 if it's an emergency.", "Open the share-trip page and send the link to your trusted contact so they know where you are."], reassurance: "Trust your instincts. You don't need a 'good reason' to move seats or get off at the next stop. The driver and staff are there to help." },
+  { id: "battery", icon: BatteryLow, title: "Phone dead or low battery", steps: ["Memorise your next 1–2 steps before the screen goes off.", "Look for free charging at staffed stations, big shops, or coffee places.", "Most ticket machines and bus drivers can tell you the next stop or service.", "If you're meant to meet someone, head to your usual meeting spot — they'll guess that."], reassurance: "You don't need your phone to get home. The transport network worked for decades without one — staff and signs will guide you." },
 ];
 
 const HelpNowPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [open, setOpen] = useState<string | null>(null);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("safety_contacts")
+      .select("id, name, phone_or_email, relationship")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .then(({ data }) => setContacts((data as Contact[]) ?? []));
+  }, [user]);
+
+  const messageHref = (c: Contact) =>
+    c.phone_or_email.includes("@") ? `mailto:${c.phone_or_email}` : `sms:${c.phone_or_email}`;
+  const callHref = (c: Contact) =>
+    c.phone_or_email.includes("@") ? `mailto:${c.phone_or_email}` : `tel:${c.phone_or_email}`;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -92,7 +70,6 @@ const HelpNowPage = () => {
           <p className="text-sm text-muted-foreground mt-1">Pick what's happening — we'll talk you through it.</p>
         </motion.div>
 
-        {/* Emergency CTA */}
         <a
           href="tel:999"
           className="w-full bg-destructive text-destructive-foreground rounded-2xl p-4 mb-6 font-semibold flex items-center justify-between"
@@ -101,7 +78,35 @@ const HelpNowPage = () => {
           <ChevronRight className="w-5 h-5" />
         </a>
 
-        <div className="space-y-2">
+        {/* Trusted contacts — direct call/message */}
+        {contacts.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-lg font-display font-semibold mb-3">Reach your trusted contacts</h2>
+            <div className="space-y-2">
+              {contacts.map((c) => (
+                <div key={c.id} className="bg-card border border-border rounded-xl p-3">
+                  <p className="font-semibold text-sm mb-2">{c.name}{c.relationship ? ` · ${c.relationship}` : ""}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href={callHref(c)}
+                      className="bg-primary text-primary-foreground rounded-lg py-2.5 font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      <Phone className="w-4 h-4" /> Call {c.name.split(" ")[0]}
+                    </a>
+                    <a
+                      href={messageHref(c)}
+                      className="bg-muted text-foreground rounded-lg py-2.5 font-semibold text-sm flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle className="w-4 h-4" /> Message
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <div className="space-y-2 mb-6">
           {SCENARIOS.map((s) => {
             const isOpen = open === s.id;
             const Icon = s.icon;
@@ -147,7 +152,26 @@ const HelpNowPage = () => {
           })}
         </div>
 
-        <div className="mt-6 bg-card rounded-xl p-4 border border-border">
+        {/* Trusted places */}
+        <section className="mb-6">
+          <h2 className="text-lg font-display font-semibold mb-3">Safe waiting places</h2>
+          <p className="text-xs text-muted-foreground mb-3">Staffed stations and well-lit interchanges where you can wait if you need to.</p>
+          <div className="space-y-2">
+            {TRUSTED_PLACES.map((p) => (
+              <div key={p.name} className="bg-card rounded-xl p-3.5 border border-border flex gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-semibold">{p.name}</p>
+                  <p className="text-xs text-muted-foreground">{p.note}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <div className="bg-card rounded-xl p-4 border border-border">
           <p className="text-sm font-semibold mb-1">Useful numbers</p>
           <ul className="text-sm text-muted-foreground space-y-1">
             <li>Emergency: <a className="text-primary" href="tel:999">999</a></li>
