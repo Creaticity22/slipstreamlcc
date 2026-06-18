@@ -263,9 +263,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const appId = Deno.env.get("TRANSPORT_API_APP_ID");
-    const appKey = Deno.env.get("TRANSPORT_API_APP_KEY");
-    if (!appId || !appKey) {
+    const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
+    if (!apiKey) {
       return new Response(
         JSON.stringify({ options: [], error: "Journey planner not configured" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -295,26 +294,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    const url =
-      `https://transportapi.com/v3/uk/public/journey/from/lonlat:${fromCoords.lng},${fromCoords.lat}` +
-      `/to/lonlat:${toCoords.lng},${toCoords.lat}.json` +
-      `?app_id=${encodeURIComponent(appId)}&app_key=${encodeURIComponent(appKey)}` +
-      `&modes=bus,train&region=south_east`;
+    const params = new URLSearchParams({
+      origin: `${fromCoords.lat},${fromCoords.lng}`,
+      destination: `${toCoords.lat},${toCoords.lng}`,
+      mode: "transit",
+      alternatives: "true",
+      region: "gb",
+      key: apiKey,
+    });
+    const url = `https://maps.googleapis.com/maps/api/directions/json?${params.toString()}`;
 
     const res = await fetchWithTimeout(url);
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      console.error("TransportAPI error", res.status, text.slice(0, 500));
+      console.error("Google Directions error", res.status, text.slice(0, 500));
       return new Response(
         JSON.stringify({ options: [], error: "No routes found between these places" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
     const json = await res.json();
-    const rawRoutes: Array<Record<string, unknown>> = Array.isArray(json?.routes) ? json.routes : [];
+    if (json?.status && json.status !== "OK") {
+      console.error("Google Directions status", json.status, json.error_message);
+      return new Response(
+        JSON.stringify({ options: [], error: "No routes found between these places" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const rawRoutes: GRoute[] = Array.isArray(json?.routes) ? json.routes : [];
     const mapped = rawRoutes
-      .map((r) => mapRoute(r as Parameters<typeof mapRoute>[0]))
+      .map((r) => mapGoogleRoute(r))
       .filter((o): o is JourneyOption => !!o);
+
 
     if (mapped.length === 0) {
       return new Response(
