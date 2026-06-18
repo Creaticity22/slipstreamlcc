@@ -12,6 +12,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import Logo from "@/components/Logo";
+import { onboardedKey } from "@/components/OnboardingGate";
 
 const STEPS = ["Welcome", "Places", "Destination", "Travel", "Access", "Safety", "Confidence", "Done"] as const;
 
@@ -81,8 +82,9 @@ const OnboardingPage = () => {
         onboarded: true,
         home_destination: finalDestination || null,
       });
+      try { localStorage.setItem(onboardedKey(user.id), "1"); } catch { /* ignore */ }
       toast({ title: "You're all set!", description: "Welcome to Slipstream." });
-      navigate("/");
+      navigate("/", { replace: true });
     } catch (e) {
       toast({ title: "Couldn't save", description: e instanceof Error ? e.message : "Try again", variant: "destructive" });
     } finally {
@@ -92,7 +94,10 @@ const OnboardingPage = () => {
 
   const skip = async () => {
     await save({ onboarded: true });
-    navigate("/");
+    if (user) {
+      try { localStorage.setItem(onboardedKey(user.id), "1"); } catch { /* ignore */ }
+    }
+    navigate("/", { replace: true });
   };
 
   return (
