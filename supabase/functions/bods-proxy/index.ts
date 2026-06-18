@@ -101,7 +101,8 @@ const naptanInFlight: Map<string, Promise<any[]>> = new Map();
 
 async function handleDatafeed(
   apiKey: string,
-  opts: { boundingBox?: any; lineNames?: string[]; stopCodes?: string[]; operatorRef?: string }
+  opts: { boundingBox?: any; lineNames?: string[]; stopCodes?: string[]; operatorRef?: string },
+  corsHeaders: Record<string, string>,
 ) {
   const params = new URLSearchParams();
   params.set("api_key", apiKey);
@@ -178,7 +179,8 @@ async function handleDatafeed(
 
 async function handleTimetable(
   apiKey: string,
-  opts: { noc?: string[]; search?: string; limit?: number; boundingBox?: any }
+  opts: { noc?: string[]; search?: string; limit?: number; boundingBox?: any },
+  corsHeaders: Record<string, string>,
 ) {
   const params = new URLSearchParams();
   params.set("api_key", apiKey);
@@ -381,7 +383,7 @@ async function handleNaptan(opts: {
   radiusKm?: number;
   atcoAreaCodes?: string[];
   boundingBox?: any;
-}) {
+}, corsHeaders: Record<string, string>) {
   const lat = opts.lat ?? 53.825;
   const lng = opts.lng ?? -1.576;
   const radiusKm = opts.radiusKm ?? 1;

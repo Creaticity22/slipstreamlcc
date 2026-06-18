@@ -1,22 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Leaf } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+
+const CACHE_TTL_MS = 60_000;
 
 export default function ImpactCard() {
   const { user } = useAuth();
   const [trips, setTrips] = useState(0);
   const [points, setPoints] = useState(0);
   const [co2, setCo2] = useState(0);
+  const lastFetchRef = useRef(0);
 
   useEffect(() => {
     if (!user) {
       setTrips(0);
       setPoints(0);
       setCo2(0);
+      lastFetchRef.current = 0;
       return;
     }
+    if (Date.now() - lastFetchRef.current < CACHE_TTL_MS) return;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     (async () => {
       const [{ data: tripRows }, { data: profile }] = await Promise.all([
@@ -36,6 +41,7 @@ export default function ImpactCard() {
       setTrips(rows.length);
       setCo2(rows.reduce((s, r) => s + Number(r.co2_saved_kg ?? 0), 0));
       setPoints(profile?.total_points ?? 0);
+      lastFetchRef.current = Date.now();
     })();
   }, [user]);
 

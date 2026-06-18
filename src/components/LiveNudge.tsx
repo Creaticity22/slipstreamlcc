@@ -21,62 +21,93 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function computeMinutesAway(dep: LiveDeparture): number | null {
+  const t = dep.expectedDepartureTime || dep.aimedDepartureTime;
+  if (!t) return null;
+  return Math.max(0, Math.round((new Date(t).getTime() - Date.now()) / 60000));
+}
+
 export default function LiveNudge() {
   const { journeys } = useFrequentJourneys(1);
   const { position, toBbox } = useGeolocation();
   const [dep, setDep] = useState<LiveDeparture | null>(null);
   const [walkMin, setWalkMin] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [minutesAway, setMinutesAway] = useState<number | null>(null);
+
+  const top = journeys[0];
+  const bbox = toBbox(11);
+  const hasContext = !!(top && bbox && position);
 
   useEffect(() => {
-    const top = journeys[0];
-    const bbox = toBbox(11);
-    if (!top || !bbox || !position) {
+    if (!hasContext) {
       setDep(null);
+      setLoading(false);
       return;
     }
+    setLoading(true);
     let cancelled = false;
     (async () => {
-      const [stopsRes, liveRes] = await Promise.all([
-        fetchNearbyStops(position.lat, position.lng, 1),
-        fetchLiveDepartures(undefined, bbox),
-      ]);
-      if (cancelled) return;
-      if (liveRes.source === "error") {
-        setDep(null);
-        return;
-      }
-      const target = top.to_location.toLowerCase();
-      const match = liveRes.departures
-        .filter(
-          (d) =>
-            d.minutesAway != null &&
-            (d.destination?.toLowerCase().includes(target) ||
-              target.includes(d.destination?.toLowerCase() ?? ""))
-        )
-        .sort((a, b) => (a.minutesAway ?? 0) - (b.minutesAway ?? 0))[0];
+      try {
+        const [stopsRes, liveRes] = await Promise.all([
+          fetchNearbyStops(position!.lat, position!.lng, 1),
+          fetchLiveDepartures(undefined, bbox!),
+        ]);
+        if (cancelled) return;
+        if (liveRes.source === "error") {
+          setDep(null);
+          return;
+        }
+        const target = top!.to_location.toLowerCase();
+        const match = liveRes.departures
+          .map((d) => ({ d, m: computeMinutesAway(d) }))
+          .filter(
+            ({ d, m }) =>
+              m != null &&
+              (d.destination?.toLowerCase().includes(target) ||
+                target.includes(d.destination?.toLowerCase() ?? ""))
+          )
+          .sort((a, b) => (a.m ?? 0) - (b.m ?? 0))[0];
 
-      const nearestStop = stopsRes.stops[0];
-      const walkKm = nearestStop
-        ? haversineKm(position.lat, position.lng, nearestStop.lat, nearestStop.lng)
-        : 0.3;
-      setWalkMin(Math.ceil((walkKm / WALK_KMH) * 60) + BUFFER_MIN);
-      setDep(match ?? null);
+        const nearestStop = stopsRes.stops[0];
+        const walkKm = nearestStop
+          ? haversineKm(position!.lat, position!.lng, nearestStop.lat, nearestStop.lng)
+          : 0.3;
+        setWalkMin(Math.ceil((walkKm / WALK_KMH) * 60) + BUFFER_MIN);
+        setDep(match?.d ?? null);
+        setMinutesAway(match ? match.m : null);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [journeys, toBbox, position]);
+  }, [journeys, toBbox, position]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!dep || dep.minutesAway == null) return null;
+  // Live countdown without re-fetching
+  useEffect(() => {
+    if (!dep) return;
+    const tick = () => setMinutesAway(computeMinutesAway(dep));
+    tick();
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, [dep]);
 
-  const leaveIn = dep.minutesAway - walkMin;
+  if (!hasContext) return null;
+  if (loading) {
+    return <div className="mt-4 h-16 rounded-xl bg-muted animate-pulse" />;
+  }
+  if (!dep || minutesAway == null) return null;
+
+  const leaveIn = minutesAway - walkMin;
   let title: string;
   let tone = "text-foreground";
-  if (dep.minutesAway < 5) {
+  if (minutesAway < 5) {
     title = "Leave now — bus is close!";
     tone = "text-slipstream-coral";
-  } else if (dep.minutesAway > 25) {
-    title = `Next bus in ${dep.minutesAway} mins — no rush`;
+  } else if (minutesAway > 25) {
+    title = `Next bus in ${minutesAway} mins — no rush`;
   } else {
     title = `Leave in ${Math.max(1, leaveIn)} minutes`;
   }
