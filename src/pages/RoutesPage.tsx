@@ -117,7 +117,7 @@ const RoutesPage = () => {
 
         {!loading && options.length > 0 && (
           <div className="space-y-3">
-            {options.map((opt, i) => (
+            {overlaidOptions.map((opt, i) => (
               <motion.div
                 key={`${opt.type}-${i}`}
                 initial={{ opacity: 0, y: 16 }}
