@@ -3,13 +3,15 @@ import JourneySearch from "@/components/JourneySearch";
 import QuickActions from "@/components/QuickActions";
 import FrequentJourneys from "@/components/FrequentJourneys";
 import SponsoredRewardsRow from "@/components/SponsoredRewardsRow";
-import { Leaf, Zap, Bell } from "lucide-react";
+import ImpactCard from "@/components/ImpactCard";
+import LiveNudge from "@/components/LiveNudge";
+import { Bell } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import BrandHeader from "@/components/BrandHeader";
 
 const Index = () => {
   const { user } = useAuth();
-  const firstName = user?.user_metadata?.full_name?.split(" ")[0] || 
+  const firstName = user?.user_metadata?.full_name?.split(" ")[0] ||
                     user?.user_metadata?.name?.split(" ")[0] || null;
 
   return (
@@ -45,51 +47,16 @@ const Index = () => {
 
         {/* Sponsored rewards — additive, scrolls naturally, never blocks core content */}
         <SponsoredRewardsRow placement="home" title="Opportunities for you" limit={1} />
-        {/* Impact card */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          className="mt-5 bg-gradient-primary rounded-2xl p-4 text-primary-foreground"
-        >
-          <div className="flex items-center gap-2 mb-2">
-            <Leaf className="w-4 h-4" />
-            <span className="text-xs font-semibold opacity-80">Your impact this week</span>
-          </div>
-          <div className="flex gap-6">
-            <div>
-              <p className="text-2xl font-display font-bold">2.1 kg</p>
-              <p className="text-xs opacity-70">CO₂ saved</p>
-            </div>
-            <div>
-              <p className="text-2xl font-display font-bold">7</p>
-              <p className="text-xs opacity-70">green trips</p>
-            </div>
-            <div>
-              <p className="text-2xl font-display font-bold">85</p>
-              <p className="text-xs opacity-70">points earned</p>
-            </div>
-          </div>
-        </motion.div>
 
-        {/* Smart nudge */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="mt-4 bg-card rounded-xl p-3.5 border border-border shadow-card flex items-center gap-3"
-        >
-          <div className="w-10 h-10 rounded-xl bg-slipstream-gold/15 flex items-center justify-center shrink-0">
-            <Zap className="w-5 h-5 text-slipstream-gold" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-foreground">Leave in 8 minutes</p>
-            <p className="text-xs text-muted-foreground">72 bus to Leeds is on time. Walk to Headingley Lane stop 🚶‍♂️</p>
-          </div>
-        </motion.div>
+        {/* Impact card (real data from trips + profile) */}
+        <ImpactCard />
+
+        {/* Smart nudge (real live departure for top frequent journey, hidden if no data) */}
+        <LiveNudge />
       </div>
     </div>
   );
 };
 
 export default Index;
+
