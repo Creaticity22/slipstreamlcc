@@ -3,6 +3,17 @@ import { Clock, Users, Leaf, Train, Bus, ArrowRight } from "lucide-react";
 
 type RouteType = "fastest" | "least-busy" | "lowest-carbon";
 
+export type OccupancyLabel = "Quiet" | "Busy" | "Packed";
+
+export function mapBodsOccupancy(raw: string | null | undefined): OccupancyLabel | null {
+  if (!raw) return null;
+  const o = raw.toLowerCase().replace(/[\s_-]/g, "");
+  if (o === "seatsavailable") return "Quiet";
+  if (o === "standingavailable") return "Busy";
+  if (o === "full") return "Packed";
+  return null;
+}
+
 interface RouteCardProps {
   type: RouteType;
   departureTime: string;
@@ -10,6 +21,7 @@ interface RouteCardProps {
   duration: string;
   co2: string;
   crowding: "Low" | "Medium" | "High";
+  occupancy?: OccupancyLabel | null;
   legs: { mode: "bus" | "train" | "walk"; line: string; duration: string }[];
   delay?: number;
 }
@@ -26,7 +38,7 @@ const crowdingColor: Record<string, string> = {
   High: "text-slipstream-coral",
 };
 
-const RouteCard = ({ type, departureTime, arrivalTime, duration, co2, crowding, legs, delay }: RouteCardProps) => {
+const RouteCard = ({ type, departureTime, arrivalTime, duration, co2, crowding, occupancy, legs, delay }: RouteCardProps) => {
   const config = typeConfig[type];
 
   return (
@@ -80,6 +92,19 @@ const RouteCard = ({ type, departureTime, arrivalTime, duration, co2, crowding, 
           <Users className="w-3.5 h-3.5" />
           <span className={`text-xs font-semibold ${crowdingColor[crowding]}`}>{crowding}</span>
         </div>
+        {occupancy && (
+          <span
+            className={`text-[10px] font-bold px-2 py-0.5 rounded-md ml-auto ${
+              occupancy === "Quiet"
+                ? "bg-slipstream-teal/15 text-slipstream-teal"
+                : occupancy === "Busy"
+                ? "bg-slipstream-gold/15 text-slipstream-gold"
+                : "bg-slipstream-coral/15 text-slipstream-coral"
+            }`}
+          >
+            {occupancy}
+          </span>
+        )}
       </div>
     </motion.div>
   );
