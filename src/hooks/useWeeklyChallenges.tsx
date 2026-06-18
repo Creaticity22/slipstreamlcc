@@ -34,22 +34,13 @@ export function useWeeklyChallenges() {
     const weekStart = currentWeekStart();
     const picks = pickWeeklyChallenges(user.id, weekStart);
 
-    // Upsert any missing rows
-    const rows = picks.map((p) => ({
-      user_id: user.id,
-      week_start: weekStart,
-      challenge_key: p.key,
-      target: p.target,
-    }));
-    await supabase
-      .from("weekly_challenges")
-      .upsert(rows, { onConflict: "user_id,week_start,challenge_key", ignoreDuplicates: true });
+    // Seed any missing rows via SECURITY DEFINER RPC (clients cannot write directly).
+    const { data: ensured } = await supabase.rpc("ensure_weekly_challenges", {
+      p_week_start: weekStart,
+      p_picks: picks.map((p) => ({ challenge_key: p.key, target: p.target })) as any,
+    });
 
-    const { data } = await supabase
-      .from("weekly_challenges")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("week_start", weekStart);
+    const data = ensured ?? [];
 
     const enriched: WeeklyChallengeRow[] = (data ?? [])
       .map((r) => {
@@ -100,13 +91,13 @@ export function useWeeklyChallenges() {
           );
         }
       } else {
-        const { error } = await supabase
-          .from("weekly_challenges")
-          .update({ progress: capped })
-          .eq("id", row.id);
-        if (!error) {
+        const { data, error } = await supabase.rpc("update_challenge_progress", {
+          p_challenge_id: row.id,
+          p_progress: capped,
+        });
+        if (!error && data) {
           setChallenges((prev) =>
-            prev.map((c) => (c.id === row.id ? { ...c, progress: capped } : c))
+            prev.map((c) => (c.id === row.id ? { ...c, progress: data.progress } : c))
           );
         }
       }
