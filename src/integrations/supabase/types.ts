@@ -460,6 +460,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      ensure_weekly_challenges: {
+        Args: { p_picks: Json; p_week_start: string }
+        Returns: {
+          challenge_key: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          points_awarded: number
+          progress: number
+          target: number
+          user_id: string
+          week_start: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "weekly_challenges"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       get_shared_trip: { Args: { p_token: string }; Returns: Json }
       log_journey_usage: {
         Args: { p_from: string; p_to: string }
@@ -476,6 +496,26 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "favourite_routes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_challenge_progress: {
+        Args: { p_challenge_id: string; p_progress: number }
+        Returns: {
+          challenge_key: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          points_awarded: number
+          progress: number
+          target: number
+          user_id: string
+          week_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "weekly_challenges"
           isOneToOne: true
           isSetofReturn: false
         }
