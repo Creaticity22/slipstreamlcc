@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { LogOut, User as UserIcon, Trophy, Heart, MessageCircle, Zap, Loader2 } from "lucide-react";
+import { LogOut, User as UserIcon, Trophy, Heart, MessageCircle, Zap, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, signInAsDemo } from "@/hooks/useAuth";
 import { lovable } from "@/integrations/lovable/index";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import BrandHeader from "@/components/BrandHeader";
 
 const ProfilePage = () => {
@@ -155,13 +155,21 @@ const ProfilePage = () => {
           ))}
         </div>
 
+        <Link
+          to="/trust"
+          className="w-full mt-6 bg-card/60 border border-border/60 text-foreground font-medium py-3 rounded-xl flex items-center justify-center gap-2 text-sm"
+        >
+          <ShieldCheck className="w-4 h-4 text-primary" />
+          Trust & Privacy
+        </Link>
+
         <motion.button
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
           whileTap={{ scale: 0.97 }}
           onClick={signOut}
-          className="w-full mt-6 bg-destructive/10 text-destructive font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm"
+          className="w-full mt-3 bg-destructive/10 text-destructive font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm"
         >
           <LogOut className="w-4 h-4" />
           Sign out
