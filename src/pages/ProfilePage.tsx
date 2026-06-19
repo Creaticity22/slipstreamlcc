@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { LogOut, User as UserIcon, Trophy, Heart, MessageCircle, Zap, Loader2 } from "lucide-react";
+import { LogOut, User as UserIcon, Trophy, Heart, MessageCircle, Zap, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, signInAsDemo } from "@/hooks/useAuth";
 import { lovable } from "@/integrations/lovable/index";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import BrandHeader from "@/components/BrandHeader";
 
 const ProfilePage = () => {
